@@ -1,152 +1,256 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, AuthContextType, LoginCredentials, RegisterCredentials } from '@/types/auth';
-import { authAPI, ApiError } from '@/lib/api';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { AuthService } from '@/services/auth.service';
+import { ApiError } from '@/lib/api-client';
+
+// Types
+export interface User {
+  userId: string;
+  name: string;
+  email: string;
+  isEnabled: boolean;
+}
+
+export interface AuthState {
+  isAuthenticated: boolean;
+  user: User | null;
+  token: string | null;
+  loading: boolean;
+  error: string | null;
+}
+
+export interface AuthContextType {
+  authState: AuthState;
+  login: (email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<void>;
+  logout: () => void;
+  generateOtp: () => Promise<void>;
+  validateOtp: (otp: string) => Promise<void>;
+  exchangeOAuthCode: (code: string) => Promise<void>;
+  initiateGoogleLogin: () => void;
+  clearError: () => void;
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [authState, setAuthState] = useState<AuthState>({
+    isAuthenticated: false,
+    user: null,
+    token: null,
+    loading: true,
+    error: null,
+  });
 
+  // Initialize auth state from storage
   useEffect(() => {
-    const quickCheck = async () => {
-      try {
-        const token = localStorage.getItem('authToken');
-        const userData = localStorage.getItem('userData');
-        
-        if (token && userData) {
-          const user = JSON.parse(userData);
-          setUser(user);
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-      } finally {
-        setIsLoading(false);
-      }
+    const initAuth = () => {
+      const token = AuthService.getToken();
+      const user = AuthService.getUser();
+      const isAuthenticated = AuthService.isAuthenticated();
+
+      setAuthState({
+        isAuthenticated,
+        user: isAuthenticated ? user : null,
+        token: isAuthenticated ? token : null,
+        loading: false,
+        error: null,
+      });
     };
 
-    setTimeout(quickCheck, 0);
+    initAuth();
   }, []);
 
-  const login = async (credentials: LoginCredentials): Promise<void> => {
-    setIsLoading(true);
-    try {
-      const authData = await authAPI.login(credentials);
-      localStorage.setItem('authToken', authData.token);
-      localStorage.setItem('userData', JSON.stringify(authData.user));
-      setUser(authData.user);
-    } catch (error) {
-      console.error('Login failed:', error);
-      if (error instanceof ApiError && error.status >= 500) {
-        console.log('Backend unavailable, using mock data for development');
-        const mockUser: User = {
-          id: 'mock-' + Date.now(),
-          email: credentials.email,
-          name: credentials.email.split('@')[0],
-        };
-        localStorage.setItem('authToken', 'mock-token-' + Date.now());
-        localStorage.setItem('userData', JSON.stringify(mockUser));
-        setUser(mockUser);
-      } else {
-        throw error;
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const clearError = useCallback(() => {
+    setAuthState((prev) => ({ ...prev, error: null }));
+  }, []);
 
-  const register = async (credentials: RegisterCredentials): Promise<void> => {
-    setIsLoading(true);
+  const login = useCallback(async (email: string, password: string) => {
     try {
-      const authData = await authAPI.register({
-        name: credentials.name,
-        email: credentials.email,
-        password: credentials.password,
-      });
-      localStorage.setItem('authToken', authData.token);
-      localStorage.setItem('userData', JSON.stringify(authData.user));
-      setUser(authData.user);
-    } catch (error) {
-      console.error('Registration failed:', error);
-      if (error instanceof ApiError && error.status >= 500) {
-        console.log('Backend unavailable, using mock data for development');
-        const mockUser: User = {
-          id: 'mock-' + Date.now(),
-          email: credentials.email,
-          name: credentials.name,
-        };
-        localStorage.setItem('authToken', 'mock-token-' + Date.now());
-        localStorage.setItem('userData', JSON.stringify(mockUser));
-        setUser(mockUser);
-      } else {
-        throw error;
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      setAuthState((prev) => ({ ...prev, loading: true, error: null }));
 
-  const loginWithGoogle = async (): Promise<void> => {
-    try {
-      const { generateCodeVerifier, generateCodeChallenge, storeCodeVerifier } = await import('@/lib/pkce');
-      const codeVerifier = generateCodeVerifier();
-      const codeChallenge = await generateCodeChallenge(codeVerifier);
-      storeCodeVerifier(codeVerifier);
-      
-      const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
-      const oauthUrl = `${backendUrl}/auth/oauth2/authorization/google?code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256`;
-      
-      window.location.href = oauthUrl;
-    } catch (error) {
-      console.error('Google OAuth redirect failed:', error);
-      try {
-        const { clearPKCEData } = await import('@/lib/pkce');
-        clearPKCEData();
-      } catch (clearError) {
-        console.error('Failed to clear PKCE data:', clearError);
+      const response = await AuthService.login({ email, password });
+
+      if (response.success && response.data) {
+        // Handle both 'isEnabled' and 'enabled' from backend
+        const isEnabled = response.data.isEnabled !== undefined 
+          ? response.data.isEnabled 
+          : ((response.data as any).enabled ?? false);
+
+        const user: User = {
+          userId: response.data.userId,
+          name: response.data.name,
+          email: response.data.email,
+          isEnabled: isEnabled,
+        };
+
+        // Only set authenticated if user is enabled
+        if (isEnabled) {
+          setAuthState({
+            isAuthenticated: true,
+            user,
+            token: response.data.token,
+            loading: false,
+            error: null,
+          });
+        } else {
+          // User not enabled - temp token stored, will redirect to verify-otp
+          setAuthState({
+            isAuthenticated: false,
+            user: null,
+            token: null,
+            loading: false,
+            error: null,
+          });
+        }
       }
+    } catch (error) {
+      const errorMessage = error instanceof ApiError ? error.message : 'Login failed';
+      setAuthState((prev) => ({
+        ...prev,
+        loading: false,
+        error: errorMessage,
+      }));
       throw error;
     }
-  };
+  }, []);
 
-  const handleOAuthSuccess = (token: string, userInfo: { email: string; name: string; userId: string; avatar?: string }) => {
-    const user: User = {
-      id: userInfo.userId,
-      email: userInfo.email,
-      name: userInfo.name,
-      avatar: userInfo.avatar || undefined,
-    };
+  const register = useCallback(async (name: string, email: string, password: string) => {
+    try {
+      setAuthState((prev) => ({ ...prev, loading: true, error: null }));
 
-    localStorage.setItem('authToken', token);
-    localStorage.setItem('userData', JSON.stringify(user));
-    setUser(user);
-    setIsLoading(false);
-  };
+      await AuthService.register({ name, email, password });
 
-  const logout = async () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userData');
-    setUser(null);
-  };
+      setAuthState((prev) => ({ ...prev, loading: false }));
+    } catch (error) {
+      const errorMessage = error instanceof ApiError ? error.message : 'Registration failed';
+      setAuthState((prev) => ({
+        ...prev,
+        loading: false,
+        error: errorMessage,
+      }));
+      throw error;
+    }
+  }, []);
+
+  const generateOtp = useCallback(async () => {
+    try {
+      setAuthState((prev) => ({ ...prev, loading: true, error: null }));
+
+      await AuthService.generateOtp();
+
+      setAuthState((prev) => ({ ...prev, loading: false }));
+    } catch (error) {
+      const errorMessage = error instanceof ApiError ? error.message : 'Failed to generate OTP';
+      setAuthState((prev) => ({
+        ...prev,
+        loading: false,
+        error: errorMessage,
+      }));
+      throw error;
+    }
+  }, []);
+
+  const validateOtp = useCallback(async (otp: string) => {
+    try {
+      setAuthState((prev) => ({ ...prev, loading: true, error: null }));
+
+      const response = await AuthService.validateOtp(otp);
+
+      if (response.success && response.data) {
+        // Handle both 'isEnabled' and 'enabled' from backend
+        const isEnabled = response.data.isEnabled !== undefined 
+          ? response.data.isEnabled 
+          : ((response.data as any).enabled ?? true);
+
+        const user: User = {
+          userId: response.data.userId,
+          name: response.data.name,
+          email: response.data.email,
+          isEnabled: isEnabled,
+        };
+
+        setAuthState({
+          isAuthenticated: true,
+          user,
+          token: response.data.token,
+          loading: false,
+          error: null,
+        });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof ApiError ? error.message : 'OTP validation failed';
+      setAuthState((prev) => ({
+        ...prev,
+        loading: false,
+        error: errorMessage,
+      }));
+      throw error;
+    }
+  }, []);
+
+  const exchangeOAuthCode = useCallback(async (code: string) => {
+    try {
+      setAuthState((prev) => ({ ...prev, loading: true, error: null }));
+
+      const response = await AuthService.exchangeOAuthCode(code);
+
+      if (response.success && response.data) {
+        const user: User = {
+          userId: response.data.userId,
+          name: response.data.name,
+          email: response.data.email,
+          isEnabled: true,
+        };
+
+        setAuthState({
+          isAuthenticated: true,
+          user,
+          token: response.data.token,
+          loading: false,
+          error: null,
+        });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof ApiError ? error.message : 'OAuth authentication failed';
+      setAuthState((prev) => ({
+        ...prev,
+        loading: false,
+        error: errorMessage,
+      }));
+      throw error;
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    AuthService.logout();
+    setAuthState({
+      isAuthenticated: false,
+      user: null,
+      token: null,
+      loading: false,
+      error: null,
+    });
+  }, []);
+
+  const initiateGoogleLogin = useCallback(async () => {
+    await AuthService.initiateGoogleLogin();
+  }, []);
 
   const value: AuthContextType = {
-    user,
-    isLoading,
-    isAuthenticated: !!user,
+    authState,
     login,
     register,
-    loginWithGoogle,
     logout,
-    handleOAuthSuccess,
+    generateOtp,
+    validateOtp,
+    exchangeOAuthCode,
+    initiateGoogleLogin,
+    clearError,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

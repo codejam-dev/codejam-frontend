@@ -19,7 +19,14 @@ export async function generateCodeChallenge(verifier: string): Promise<string> {
 }
 
 function base64UrlEncode(array: Uint8Array): string {
-  const base64 = btoa(String.fromCharCode(...array));
+  // Handle large arrays by chunking to avoid "Maximum call stack size exceeded"
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < array.length; i += chunkSize) {
+    const chunk = array.slice(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  const base64 = btoa(binary);
   return base64
     .replace(/\+/g, '-')
     .replace(/\//g, '_')

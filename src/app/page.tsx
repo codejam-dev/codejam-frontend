@@ -3,9 +3,13 @@
 import { motion, useScroll } from 'framer-motion'
 import { GithubIcon, Zap, Users, Link as LinkIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function Home() {
   const { scrollYProgress } = useScroll()
+  const router = useRouter()
+  const { authState } = useAuth()
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white overflow-hidden">
@@ -43,32 +47,48 @@ export default function Home() {
 
           <div className="flex gap-6 items-center">
             <motion.a
-              href="#"
+              href="#features"
               className="text-gray-400 hover:text-white transition"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
             >
-              Docs
+              Features
             </motion.a>
             <motion.a
-              href="https://github.com"
+              href="https://github.com/codejam-dev"
               target="_blank"
+              rel="noopener noreferrer"
               className="text-gray-400 hover:text-white transition"
               whileHover={{ scale: 1.1, rotate: 5 }}
               whileTap={{ scale: 0.95 }}
             >
               <GithubIcon className="w-5 h-5" />
             </motion.a>
-            <motion.button
-              className="px-6 py-2 bg-gradient-to-r from-violet-600 to-pink-600 rounded-lg font-semibold"
-              whileHover={{
-                scale: 1.05,
-                boxShadow: "0 0 30px rgba(139, 92, 246, 0.5)"
-              }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Sign Up
-            </motion.button>
+            {authState.isAuthenticated ? (
+              <motion.button
+                onClick={() => router.push('/dashboard')}
+                className="px-6 py-2 bg-gradient-to-r from-violet-600 to-pink-600 rounded-lg font-semibold cursor-pointer"
+                whileHover={{
+                  scale: 1.05,
+                  boxShadow: "0 0 30px rgba(139, 92, 246, 0.5)"
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Dashboard
+              </motion.button>
+            ) : (
+              <motion.button
+                onClick={() => router.push('/auth/register')}
+                className="px-6 py-2 bg-gradient-to-r from-violet-600 to-pink-600 rounded-lg font-semibold cursor-pointer"
+                whileHover={{
+                  scale: 1.05,
+                  boxShadow: "0 0 30px rgba(139, 92, 246, 0.5)"
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Sign Up
+              </motion.button>
+            )}
           </div>
         </div>
       </motion.nav>
@@ -134,7 +154,14 @@ export default function Home() {
             transition={{ delay: 1, duration: 0.5 }}
           >
             <motion.button
-              className="relative px-8 py-4 bg-gradient-to-r from-violet-600 to-pink-600 rounded-lg font-semibold text-lg overflow-hidden group"
+              onClick={() => {
+                if (authState.isAuthenticated) {
+                  router.push('/dashboard')
+                } else {
+                  router.push('/auth/register')
+                }
+              }}
+              className="relative px-8 py-4 bg-gradient-to-r from-violet-600 to-pink-600 rounded-lg font-semibold text-lg overflow-hidden group cursor-pointer"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -144,7 +171,9 @@ export default function Home() {
                 whileHover={{ x: 0 }}
                 transition={{ duration: 0.3 }}
               />
-              <span className="relative z-10">Start Coding Free</span>
+              <span className="relative z-10">
+                {authState.isAuthenticated ? 'Go to Dashboard' : 'Start Coding Free'}
+              </span>
 
               {/* Glow effect */}
               <motion.div
@@ -162,11 +191,12 @@ export default function Home() {
             </motion.button>
 
             <motion.button
-              className="px-8 py-4 border-2 border-violet-500/50 rounded-lg font-semibold text-lg backdrop-blur-sm hover:bg-violet-500/10 transition"
+              onClick={() => router.push('/auth/login')}
+              className="px-8 py-4 border-2 border-violet-500/50 rounded-lg font-semibold text-lg backdrop-blur-sm hover:bg-violet-500/10 transition cursor-pointer"
               whileHover={{ scale: 1.05, borderColor: 'rgba(139, 92, 246, 1)' }}
               whileTap={{ scale: 0.95 }}
             >
-              Watch Demo
+              {authState.isAuthenticated ? 'Dashboard' : 'Sign In'}
             </motion.button>
           </motion.div>
 
@@ -551,15 +581,29 @@ function MagneticButton() {
 
 // Component: Particles Background
 function ParticlesBackground() {
+  const [particles, setParticles] = useState<Array<{left: number, top: number, duration: number, delay: number}>>([]);
+
+  useEffect(() => {
+    // Generate particles only on client side to avoid hydration mismatch
+    setParticles(
+      [...Array(20)].map(() => ({
+        left: Math.random() * 100,
+        top: Math.random() * 100,
+        duration: 3 + Math.random() * 2,
+        delay: Math.random() * 2,
+      }))
+    );
+  }, []);
+
   return (
     <div className="absolute inset-0 overflow-hidden">
-      {[...Array(20)].map((_, i) => (
+      {particles.map((particle, i) => (
         <motion.div
           key={i}
           className="absolute w-2 h-2 bg-violet-500/30 rounded-full"
           style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
+            left: `${particle.left}%`,
+            top: `${particle.top}%`,
           }}
           animate={{
             y: [0, -30, 0],
@@ -567,9 +611,9 @@ function ParticlesBackground() {
             scale: [1, 1.5, 1],
           }}
           transition={{
-            duration: 3 + Math.random() * 2,
+            duration: particle.duration,
             repeat: Infinity,
-            delay: Math.random() * 2,
+            delay: particle.delay,
           }}
         />
       ))}
