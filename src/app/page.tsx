@@ -54,6 +54,14 @@ export default function Home() {
             >
               Features
             </motion.a>
+            <motion.button
+              onClick={() => router.push('/playground')}
+              className="text-gray-400 hover:text-white transition"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              Playground
+            </motion.button>
             <motion.a
               href="https://github.com/codejam-dev"
               target="_blank"

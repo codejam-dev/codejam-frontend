@@ -36,3 +36,23 @@
   scrollbar-width: thin;
   scrollbar-color: #8b5cf6 #0a0a0f;
 }
+
+/* Split Pane Gutter Styling */
+.gutter {
+  background-color: #1f2937;
+  background-repeat: no-repeat;
+  background-position: 50%;
+  transition: background-color 0.2s ease;
+}
+
+.gutter:hover {
+  background-color: rgba(139, 92, 246, 0.2);
+}
+
+.gutter.gutter-horizontal {
+  cursor: col-resize;
+}
+
+.gutter.gutter-vertical {
+  cursor: row-resize;
+}

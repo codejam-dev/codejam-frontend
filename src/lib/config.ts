@@ -18,6 +18,9 @@ export const STORAGE_KEYS = {
   USER_DATA: 'codejam_user_data',
   PENDING_EMAIL: 'codejam_pending_email',
   PENDING_TRANSACTION_ID: 'codejam_pending_transaction_id',
+  PLAYGROUND_CODE: 'codejam_playground_code',
+  PLAYGROUND_LANGUAGE: 'codejam_playground_language',
+  PLAYGROUND_SETTINGS: 'codejam_playground_settings',
 };
 
 // API Endpoints
@@ -29,5 +32,8 @@ export const API_ENDPOINTS = {
     VALIDATE_OTP: `${API_CONFIG.AUTH_BASE_URL}/validateOtp`,
     OAUTH_EXCHANGE: `${API_CONFIG.AUTH_BASE_URL}/oauth/exchange`,
     HEALTH: `${API_CONFIG.AUTH_BASE_URL}/health`,
+  },
+  PLAYGROUND: {
+    EXECUTE: `${API_CONFIG.BASE_URL}/api/playground/execute`,
   },
 };
