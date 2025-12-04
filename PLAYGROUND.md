@@ -13,8 +13,8 @@ A collaborative code playground component for CodeJam with Monaco Editor integra
 - ✅ Beautiful output panel with stdout/stderr differentiation
 
 ### UI/UX Features
-- ✅ Language selector dropdown with icons
-- ✅ Run button with loading states
+- ✅ Language selector dropdown with official SVG icons
+- ✅ Run button with shimmer effect and loading states
 - ✅ Clear output button
 - ✅ Status bar showing: language, cursor position, line count, character count
 - ✅ Execution time display
@@ -22,6 +22,30 @@ A collaborative code playground component for CodeJam with Monaco Editor integra
 - ✅ Smooth animations with Framer Motion
 - ✅ Loading skeleton on editor mount
 - ✅ Responsive design (mobile/tablet/desktop)
+
+### Visual Enhancements (NEW!)
+- ✅ **Animated background**: Pulsing gradient orbs (violet, pink, cyan)
+- ✅ **Shimmer effect**: On Run button hover
+- ✅ **Icon animations**: Toolbar buttons rotate/scale on hover
+- ✅ **Glow effects**: Hover borders on editor and output panels
+- ✅ **Language transition**: Animated overlay when switching languages
+- ✅ **Executing animations**:
+  - Multi-layered spinning rings with pulsing glow
+  - Rotating particles around loading indicator
+  - Status bar progress bar animation
+  - Pulsing language icon in status bar
+  - "Executing..." text with spinner
+- ✅ **Output panel enhancements**:
+  - Floating particle background
+  - Terminal scanline effect
+  - Glass morphism header
+  - Neon glow on "Output Console" text
+  - Animated clear button
+- ✅ **Status bar live indicators**:
+  - Pulsing auto-save indicator with green dot
+  - Progress bar animation during execution
+  - Animated language icon
+- ✅ **Split pane gutter**: Glowing divider on hover with gradient line
 
 ### Developer Experience
 - ✅ Auto-save to localStorage (persists between sessions)

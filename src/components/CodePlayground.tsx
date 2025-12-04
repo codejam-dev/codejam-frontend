@@ -48,6 +48,7 @@ export default function CodePlayground() {
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [isLanguageChanging, setIsLanguageChanging] = useState(false);
 
   // Load saved state on mount
   useEffect(() => {
@@ -95,9 +96,15 @@ export default function CodePlayground() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [state.code, state.language]);
 
-  const handleLanguageChange = (language: SupportedLanguage) => {
+  const handleLanguageChange = async (language: SupportedLanguage) => {
     // Save current code before switching
     PlaygroundService.saveCode(state.language, state.code);
+
+    // Show transition effect
+    setIsLanguageChanging(true);
+
+    // Small delay for animation
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     // Load saved code for new language or use default
     const savedCode = PlaygroundService.getSavedCode(language);
@@ -113,6 +120,9 @@ export default function CodePlayground() {
 
     PlaygroundService.saveLanguage(language);
     setShowLanguageDropdown(false);
+
+    // Reset transition effect
+    setTimeout(() => setIsLanguageChanging(false), 100);
   };
 
   const handleCodeChange = (newCode: string) => {
@@ -151,9 +161,16 @@ export default function CodePlayground() {
   const currentLanguage = LANGUAGE_TEMPLATES[state.language];
 
   return (
-    <div className="flex flex-col h-screen bg-[#0a0a0f] text-white">
+    <div className="flex flex-col h-screen bg-[#0a0a0f] text-white relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 -left-4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-0 -right-4 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+      </div>
+
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-3 bg-gray-800/50 border-b border-gray-700 backdrop-blur-sm relative z-50">
+      <div className="flex items-center justify-between px-4 py-3 bg-gray-800/50 border-b border-gray-700 backdrop-blur-sm relative z-50 shadow-lg shadow-violet-500/10">
         <div className="flex items-center gap-3">
           {/* Language Selector */}
           <div className="relative">
@@ -227,47 +244,60 @@ export default function CodePlayground() {
           </div>
 
           {/* Run Button */}
-          <button
+          <motion.button
             onClick={handleRunCode}
             disabled={state.isExecuting}
-            className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-medium shadow-lg shadow-violet-500/25 transition-all duration-200 hover:scale-105 disabled:hover:scale-100"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.98 }}
+            className="relative flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-medium shadow-lg shadow-violet-500/25 transition-all duration-200 disabled:hover:scale-100 overflow-hidden group"
           >
-            <Play className="w-4 h-4" fill="currentColor" />
+            {/* Shimmer effect */}
+            <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
+            <Play className={`w-4 h-4 ${state.isExecuting ? 'animate-spin' : ''}`} fill="currentColor" />
             {state.isExecuting ? 'Running...' : 'Run Code'}
-          </button>
+          </motion.button>
         </div>
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <button
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+          <motion.button
+            whileHover={{ scale: 1.1, rotate: 180 }}
+            transition={{ duration: 0.3 }}
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors group"
             title="Settings"
           >
-            <Settings className="w-4 h-4 text-gray-400" />
-          </button>
-          <button
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            <Settings className="w-4 h-4 text-gray-400 group-hover:text-violet-400" />
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.1, y: -2 }}
+            transition={{ duration: 0.2 }}
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors group"
             title="Download Code"
           >
-            <Download className="w-4 h-4 text-gray-400" />
-          </button>
-          <button
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            <Download className="w-4 h-4 text-gray-400 group-hover:text-cyan-400" />
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            transition={{ duration: 0.2 }}
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors group"
             title="Share"
           >
-            <Share2 className="w-4 h-4 text-gray-400" />
-          </button>
-          <button
+            <Share2 className="w-4 h-4 text-gray-400 group-hover:text-pink-400" />
+          </motion.button>
+          <motion.button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors group"
             title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
           >
             {isFullscreen ? (
-              <Minimize2 className="w-4 h-4 text-gray-400" />
+              <Minimize2 className="w-4 h-4 text-gray-400 group-hover:text-violet-400" />
             ) : (
-              <Maximize2 className="w-4 h-4 text-gray-400" />
+              <Maximize2 className="w-4 h-4 text-gray-400 group-hover:text-violet-400" />
             )}
-          </button>
+          </motion.button>
         </div>
       </div>
 
@@ -289,7 +319,45 @@ export default function CodePlayground() {
           }}
         >
           {/* Editor Panel */}
-          <div className="h-full bg-[#1e1e1e]">
+          <div className="h-full bg-[#1e1e1e] relative">
+            {/* Glow effect border */}
+            <div className="absolute inset-0 bg-gradient-to-r from-violet-500/20 via-pink-500/20 to-cyan-500/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" style={{ padding: '1px' }}>
+              <div className="w-full h-full bg-[#1e1e1e]" />
+            </div>
+
+            {/* Language change transition overlay */}
+            <AnimatePresence>
+              {isLanguageChanging && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 bg-gradient-to-br from-violet-600/30 via-pink-600/30 to-cyan-600/30 backdrop-blur-sm z-50 flex items-center justify-center"
+                >
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="flex items-center gap-3 px-6 py-3 bg-gray-900/80 border border-violet-500/50 rounded-xl"
+                  >
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    >
+                      {(() => {
+                        const langIcon = LANGUAGE_TEMPLATES[state.language].icon;
+                        if (typeof langIcon === 'function') {
+                          const IconComponent = langIcon;
+                          return <IconComponent className="w-6 h-6" style={{ color: LANGUAGE_TEMPLATES[state.language].iconColor }} />;
+                        }
+                        return <span className="text-2xl">{langIcon}</span>;
+                      })()}
+                    </motion.div>
+                    <span className="text-white font-medium">Switching language...</span>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <CodeEditor
               language={state.language}
               value={state.code}
@@ -300,7 +368,11 @@ export default function CodePlayground() {
           </div>
 
           {/* Output Panel */}
-          <div className="h-full">
+          <div className="h-full relative">
+            {/* Glow effect border */}
+            <div className="absolute inset-0 bg-gradient-to-l from-violet-500/20 via-pink-500/20 to-cyan-500/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" style={{ padding: '1px' }}>
+              <div className="w-full h-full bg-gray-900" />
+            </div>
             <OutputPanel
               output={state.output}
               isExecuting={state.isExecuting}
@@ -311,9 +383,30 @@ export default function CodePlayground() {
       </div>
 
       {/* Status Bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-800/50 border-t border-gray-700 text-xs backdrop-blur-sm">
+      <div className="flex items-center justify-between px-4 py-2 bg-gray-800/50 border-t border-gray-700 text-xs backdrop-blur-sm relative overflow-hidden">
+        {/* Executing indicator animation */}
+        {state.isExecuting && (
+          <motion.div
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: [0, 1, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-violet-500 to-transparent origin-left"
+          />
+        )}
+
         <div className="flex items-center gap-4 text-gray-400">
-          <span>
+          <span className="flex items-center gap-2">
+            <motion.div
+              className="flex items-center justify-center w-5 h-5 rounded"
+              animate={state.isExecuting ? { scale: [1, 1.2, 1] } : {}}
+              transition={{ duration: 1, repeat: state.isExecuting ? Infinity : 0 }}
+            >
+              {typeof currentLanguage.icon === 'function' ? (
+                <currentLanguage.icon className="w-4 h-4" style={{ color: currentLanguage.iconColor }} />
+              ) : (
+                <span className="text-base">{currentLanguage.icon}</span>
+              )}
+            </motion.div>
             <span className="text-violet-400 font-medium">{currentLanguage.name}</span>
           </span>
           <span className="flex items-center gap-1">
@@ -324,7 +417,28 @@ export default function CodePlayground() {
         </div>
 
         <div className="flex items-center gap-4 text-gray-400">
-          <span>Auto-save enabled</span>
+          {state.isExecuting && (
+            <motion.span
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex items-center gap-1.5 text-violet-400"
+            >
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full"
+              />
+              Executing...
+            </motion.span>
+          )}
+          <motion.span
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="flex items-center gap-1"
+          >
+            <span className="w-1.5 h-1.5 bg-green-500 rounded-full shadow-lg shadow-green-500/50" />
+            Auto-save
+          </motion.span>
           <span className="flex items-center gap-1">
             <kbd className="px-1.5 py-0.5 bg-gray-700 border border-gray-600 rounded text-xs">Ctrl+Enter</kbd>
             to run

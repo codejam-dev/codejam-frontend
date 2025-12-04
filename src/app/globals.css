@@ -10,25 +10,50 @@
     color: white;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
   }
 }
 
-/* Custom Scrollbar */
+/* Animated background gradient */
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animated-gradient-bg {
+  background: linear-gradient(-45deg, #0a0a0f, #1a0a1f, #0a1a2f, #0a0a0f);
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+}
+
+/* Custom Scrollbar with glow */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 12px;
+  height: 12px;
 }
 
 ::-webkit-scrollbar-track {
   background: #0a0a0f;
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #8b5cf6;
-  border-radius: 5px;
+  background: linear-gradient(180deg, #8b5cf6, #ec4899);
+  border-radius: 10px;
+  border: 2px solid #0a0a0f;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a78bfa;
+  background: linear-gradient(180deg, #a78bfa, #f472b6);
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.8);
 }
 
 /* Firefox */
@@ -37,16 +62,35 @@
   scrollbar-color: #8b5cf6 #0a0a0f;
 }
 
-/* Split Pane Gutter Styling */
+/* Split Pane Gutter Styling with glow */
 .gutter {
   background-color: #1f2937;
   background-repeat: no-repeat;
   background-position: 50%;
-  transition: background-color 0.2s ease;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.gutter::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 40px;
+  background: linear-gradient(to bottom, transparent, #8b5cf6, transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .gutter:hover {
   background-color: rgba(139, 92, 246, 0.2);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+}
+
+.gutter:hover::after {
+  opacity: 1;
 }
 
 .gutter.gutter-horizontal {
@@ -55,4 +99,113 @@
 
 .gutter.gutter-vertical {
   cursor: row-resize;
+}
+
+.gutter.gutter-vertical::after {
+  width: 40px;
+  height: 2px;
+  background: linear-gradient(to right, transparent, #8b5cf6, transparent);
+}
+
+/* Glassmorphism effect */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Terminal text animation */
+@keyframes terminal-blink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+.terminal-cursor {
+  animation: terminal-blink 1s infinite;
+}
+
+/* Neon glow effect */
+.neon-glow {
+  text-shadow: 0 0 10px rgba(139, 92, 246, 0.8),
+               0 0 20px rgba(139, 92, 246, 0.6),
+               0 0 30px rgba(139, 92, 246, 0.4);
+}
+
+/* Button pulse animation */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(139, 92, 246, 0.8), 0 0 40px rgba(139, 92, 246, 0.4);
+  }
+}
+
+.pulse-on-hover:hover {
+  animation: pulse-glow 2s infinite;
+}
+
+/* Code output animations */
+@keyframes slideInFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-in {
+  animation: slideInFromBottom 0.4s ease-out;
+}
+
+/* Floating particles background */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  33% {
+    transform: translateY(-20px) translateX(10px);
+  }
+  66% {
+    transform: translateY(-10px) translateX(-10px);
+  }
+}
+
+.floating-particle {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Scan line effect for terminal */
+@keyframes scan {
+  0% {
+    top: 0;
+  }
+  100% {
+    top: 100%;
+  }
+}
+
+.terminal-scanline {
+  position: relative;
+  overflow: hidden;
+}
+
+.terminal-scanline::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(to bottom, transparent, rgba(139, 92, 246, 0.3), transparent);
+  animation: scan 4s linear infinite;
+  pointer-events: none;
+  z-index: 1000;
 }
