@@ -152,14 +152,26 @@ export class AuthService {
   /**
    * Logout user
    */
-  static logout(): void {
+  static async logout(): Promise<void> {
     if (typeof window === 'undefined') return;
 
-    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-    localStorage.removeItem(STORAGE_KEYS.TEMP_TOKEN);
-    localStorage.removeItem(STORAGE_KEYS.USER_DATA);
-    localStorage.removeItem(STORAGE_KEYS.PENDING_EMAIL);
-    localStorage.removeItem(STORAGE_KEYS.PENDING_TRANSACTION_ID);
+    try {
+      // Call backend logout endpoint to invalidate token on server
+      const token = this.getToken();
+      if (token) {
+        await ApiClient.post(API_ENDPOINTS.AUTH.LOGOUT, undefined, true);
+      }
+    } catch (error) {
+      // Even if backend logout fails, clear local storage
+      console.error('Logout API call failed:', error);
+    } finally {
+      // Always clear local storage
+      localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.TEMP_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+      localStorage.removeItem(STORAGE_KEYS.PENDING_EMAIL);
+      localStorage.removeItem(STORAGE_KEYS.PENDING_TRANSACTION_ID);
+    }
   }
 
   /**
@@ -247,7 +259,8 @@ export class AuthService {
   private static saveAuthData(data: AuthResponse | OAuthCodeResponse | RegisterResponse): void {
     if (typeof window === 'undefined') return;
 
-    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, data.token);
+    const cleanToken = data.token.trim().replace(/^Bearer\s+/i, '');
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, cleanToken);
 
     // Handle both 'isEnabled' and 'enabled' from backend
     const isEnabled = 'isEnabled' in data 
@@ -269,7 +282,8 @@ export class AuthService {
    */
   private static saveTempToken(token: string): void {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(STORAGE_KEYS.TEMP_TOKEN, token);
+    const cleanToken = token.trim().replace(/^Bearer\s+/i, '');
+    localStorage.setItem(STORAGE_KEYS.TEMP_TOKEN, cleanToken);
   }
 
   /**

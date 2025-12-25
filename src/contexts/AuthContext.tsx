@@ -24,7 +24,7 @@ export interface AuthContextType {
   authState: AuthState;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   generateOtp: () => Promise<void>;
   validateOtp: (otp: string) => Promise<void>;
   exchangeOAuthCode: (code: string) => Promise<void>;
@@ -223,15 +223,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const logout = useCallback(() => {
-    AuthService.logout();
-    setAuthState({
-      isAuthenticated: false,
-      user: null,
-      token: null,
-      loading: false,
-      error: null,
-    });
+  const logout = useCallback(async () => {
+    try {
+      await AuthService.logout();
+    } finally {
+      // Always update state even if logout API fails
+      setAuthState({
+        isAuthenticated: false,
+        user: null,
+        token: null,
+        loading: false,
+        error: null,
+      });
+    }
   }, []);
 
   const initiateGoogleLogin = useCallback(async () => {

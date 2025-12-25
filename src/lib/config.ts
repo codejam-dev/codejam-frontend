@@ -28,8 +28,11 @@ export const API_ENDPOINTS = {
   AUTH: {
     REGISTER: `${API_CONFIG.AUTH_BASE_URL}/register`,
     LOGIN: `${API_CONFIG.AUTH_BASE_URL}/login`,
+    LOGOUT: `${API_CONFIG.AUTH_BASE_URL}/logout`,
     GENERATE_OTP: `${API_CONFIG.AUTH_BASE_URL}/generateOtp`,
     VALIDATE_OTP: `${API_CONFIG.AUTH_BASE_URL}/validateOtp`,
+    RESET_PASSWORD: `${API_CONFIG.AUTH_BASE_URL}/resetPassword`,
+    VALIDATE_RESET_TOKEN: `${API_CONFIG.AUTH_BASE_URL}/validateResetToken`,
     OAUTH_EXCHANGE: `${API_CONFIG.AUTH_BASE_URL}/oauth/exchange`,
     HEALTH: `${API_CONFIG.AUTH_BASE_URL}/health`,
   },

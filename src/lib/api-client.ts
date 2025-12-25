@@ -19,10 +19,20 @@ export class ApiClient {
 
     // First check for full auth token
     const authToken = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-    if (authToken) return authToken;
+    if (authToken) {
+      const trimmed = authToken.trim();
+      // Remove "Bearer " prefix if accidentally stored
+      return trimmed.startsWith('Bearer ') ? trimmed.substring(7).trim() : trimmed;
+    }
 
     // Fall back to temp token (for OTP flow)
-    return localStorage.getItem(STORAGE_KEYS.TEMP_TOKEN);
+    const tempToken = localStorage.getItem(STORAGE_KEYS.TEMP_TOKEN);
+    if (tempToken) {
+      const trimmed = tempToken.trim();
+      return trimmed.startsWith('Bearer ') ? trimmed.substring(7).trim() : trimmed;
+    }
+
+    return null;
   }
 
   private static getHeaders(includeAuth: boolean = false): HeadersInit {
@@ -33,7 +43,8 @@ export class ApiClient {
     if (includeAuth) {
       const token = this.getToken();
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        const cleanToken = token.trim();
+        headers['Authorization'] = `Bearer ${cleanToken}`;
       }
     }
 
@@ -63,6 +74,12 @@ export class ApiClient {
       const data: BaseResponse<T> = await response.json();
 
       if (!response.ok || !data.success) {
+        if (response.status === 401 && includeAuth) {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+            localStorage.removeItem(STORAGE_KEYS.TEMP_TOKEN);
+          }
+        }
         throw new ApiError(
           data.message || 'An error occurred',
           data.errorCode,
