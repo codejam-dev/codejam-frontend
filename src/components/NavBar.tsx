@@ -11,6 +11,19 @@ export default function NavBar() {
   const { authState, logout } = useAuth();
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Check if NavBar has already animated in this session
+  const hasAnimated = typeof window !== 'undefined' && sessionStorage.getItem('navbar-animated') === 'true';
+
+  // Mark as animated after first animation completes
+  useEffect(() => {
+    if (!hasAnimated) {
+      const timer = setTimeout(() => {
+        sessionStorage.setItem('navbar-animated', 'true');
+      }, 500); // After animation completes
+      return () => clearTimeout(timer);
+    }
+  }, [hasAnimated]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -42,9 +55,9 @@ export default function NavBar() {
 
   return (
     <motion.nav
-      initial={{ y: -100, opacity: 0 }}
+      initial={hasAnimated ? false : { y: -100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.5 }}
+      transition={hasAnimated ? { duration: 0 } : { duration: 0.5 }}
       className="sticky top-0 z-[100] px-6 py-4 backdrop-blur-lg border-b border-white/10 bg-[#0a0a0f]/80"
     >
       <div className="max-w-7xl mx-auto relative flex justify-between items-center">

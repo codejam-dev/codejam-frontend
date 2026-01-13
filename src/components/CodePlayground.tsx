@@ -190,7 +190,12 @@ export default function CodePlayground() {
   const fileName = `Main${currentLanguage.extension}`;
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0a0f] text-white relative overflow-hidden">
+    <motion.div
+      className="flex flex-col h-full bg-[#0a0a0f]/95 text-white relative overflow-hidden"
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+    >
       {/* Animated Background */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 -left-4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl animate-pulse" />
@@ -199,7 +204,12 @@ export default function CodePlayground() {
       </div>
 
       {/* Premium Header Toolbar */}
-      <div className="flex items-center justify-between px-6 py-3.5 bg-gradient-to-b from-gray-900/95 via-gray-800/95 to-gray-900/95 border-b border-gray-700/50 backdrop-blur-xl relative z-40 shadow-2xl shadow-black/20">
+      <motion.div
+        className="flex items-center justify-between px-6 py-3.5 bg-gradient-to-b from-gray-900/95 via-gray-800/95 to-gray-900/95 border-b border-gray-700/50 backdrop-blur-xl relative z-40 shadow-2xl shadow-black/20"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
         {/* Left Section: Language & File Info */}
         <div className="flex items-center gap-4">
           {/* Language Selector - Redesigned */}
@@ -384,10 +394,15 @@ export default function CodePlayground() {
             )}
           </motion.button> */}
         </div>
-      </div>
+      </motion.div>
 
       {/* Editor and Output Split View */}
-      <div className="flex-1 overflow-hidden">
+      <motion.div
+        className="flex-1 overflow-hidden"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.2 }}
+      >
         <Split
           className="flex h-full"
           sizes={[60, 40]}
@@ -471,7 +486,7 @@ export default function CodePlayground() {
             />
           </div>
         </Split>
-      </div>
+      </motion.div>
 
       {/* Premium Status Bar */}
       <div className="flex items-center justify-between px-6 py-2.5 bg-gradient-to-b from-gray-900/95 via-gray-800/95 to-gray-900/95 border-t border-gray-700/50 text-xs backdrop-blur-xl relative overflow-hidden shadow-lg shadow-black/10">
@@ -544,6 +559,6 @@ export default function CodePlayground() {
         </div>
       </div>
 
-    </div>
+    </motion.div>
   );
 }
