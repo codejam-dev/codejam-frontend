@@ -68,8 +68,8 @@ export default function LoginPage() {
         // User is not enabled, redirect to OTP verification
         router.push('/auth/verify-otp');
       } else {
-        // User is enabled, go to dashboard
-        router.push('/dashboard');
+        // User is enabled, go to playground
+        router.push('/playground');
       }
     } catch (error) {
       console.error('Login failed:', error);

@@ -7,6 +7,7 @@ import { getLanguageConfig } from '@/lib/language-templates';
 import * as monaco from 'monaco-editor';
 import { FileCode, ChevronRight, ChevronDown, ChevronUp, Terminal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getCommandKey } from '@/utils/platform';
 
 interface CodeEditorProps {
   language: SupportedLanguage;
@@ -19,6 +20,7 @@ interface CodeEditorProps {
   input?: string;
   onInputChange?: (input: string) => void;
   onToggleInputPanel?: () => void;
+  onRunCode?: () => void;
 }
 
 export default function CodeEditor({
@@ -32,6 +34,7 @@ export default function CodeEditor({
   input = '',
   onInputChange,
   onToggleInputPanel,
+  onRunCode,
 }: CodeEditorProps) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +42,20 @@ export default function CodeEditor({
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     setIsLoading(false);
+
+    // Add Command+Enter (or Ctrl+Enter) keyboard shortcut to run code
+    if (onRunCode) {
+      editor.addAction({
+        id: 'run-code',
+        label: 'Run Code',
+        keybindings: [
+          monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter
+        ],
+        run: () => {
+          onRunCode();
+        }
+      });
+    }
 
     // Update stats on cursor position change
     editor.onDidChangeCursorPosition((e) => {
@@ -120,7 +137,7 @@ export default function CodeEditor({
         {/* Keyboard Shortcut Hint */}
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <kbd className="px-2 py-0.5 bg-gray-700/50 border border-gray-600/50 rounded text-xs font-mono text-gray-400 shadow-inner">
-            {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}
+            {getCommandKey()}
           </kbd>
           <span>+</span>
           <kbd className="px-2 py-0.5 bg-gray-700/50 border border-gray-600/50 rounded text-xs font-mono text-gray-400 shadow-inner">
@@ -167,7 +184,6 @@ export default function CodeEditor({
             },
             renderWhitespace: 'selection',
             rulers: [],
-            fontSize: 14,
             lineHeight: 22,
           }}
           loading={

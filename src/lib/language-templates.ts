@@ -5,7 +5,6 @@
 import { LanguageConfig, SupportedLanguage } from '@/types/playground.types';
 import {
   SiJavascript,
-  SiTypescript,
   SiPython,
   SiCplusplus,
   SiC,
@@ -32,36 +31,6 @@ function fibonacci(n) {
 }
 
 console.log("Fibonacci(10):", fibonacci(10));
-`,
-  },
-  typescript: {
-    id: 'typescript',
-    name: 'TypeScript',
-    monacoLanguage: 'typescript',
-    extension: '.ts',
-    icon: SiTypescript,
-    iconColor: '#3178C6',
-    defaultCode: `// TypeScript Playground
-console.log("Hello, CodeJam!");
-
-// Your code here
-function greet(name: string): string {
-  return \`Hello, \${name}!\`;
-}
-
-console.log(greet("World"));
-
-interface Person {
-  name: string;
-  age: number;
-}
-
-const person: Person = {
-  name: "Alice",
-  age: 30,
-};
-
-console.log(\`\${person.name} is \${person.age} years old.\`);
 `,
   },
   python: {

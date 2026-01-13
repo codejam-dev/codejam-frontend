@@ -4,6 +4,7 @@ import { CodeExecutionResponse } from '@/types/playground.types';
 import { Terminal, X, Clock, AlertCircle, CheckCircle2, Trash2, Copy, Zap, Cpu, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
+import { getCommandKey } from '@/utils/platform';
 
 interface OutputPanelProps {
   output: CodeExecutionResponse | null;
@@ -257,7 +258,7 @@ function EmptyState() {
       <div className="text-center space-y-2">
         <p className="text-gray-400 font-medium mb-1">Ready to execute</p>
         <p className="text-gray-500 text-sm max-w-xs">
-          Press <kbd className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-violet-300">Ctrl+Enter</kbd> or click <span className="text-violet-400 font-semibold">Run</span> to see the output
+          Press <kbd className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-violet-300">{getCommandKey()}+Enter</kbd> or click <span className="text-violet-400 font-semibold">Run</span> to see the output
         </p>
       </div>
     </motion.div>

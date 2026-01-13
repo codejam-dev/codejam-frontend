@@ -1,10 +1,18 @@
-import CodePlayground from '@/components/CodePlayground';
+'use client';
 
-export const metadata = {
-  title: 'Code Playground | CodeJam',
-  description: 'Write, run, and share code in multiple programming languages with CodeJam\'s collaborative playground.',
-};
+import CodePlayground from '@/components/CodePlayground';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+import NavBar from '@/components/NavBar';
 
 export default function PlaygroundPage() {
-  return <CodePlayground />;
+  return (
+    <ProtectedRoute>
+      <div className="flex flex-col h-screen">
+        <NavBar />
+        <div className="flex-1 overflow-hidden">
+          <CodePlayground />
+        </div>
+      </div>
+    </ProtectedRoute>
+  );
 }

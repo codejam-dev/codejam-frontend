@@ -88,7 +88,7 @@ export default function VerifyOtpPage() {
 
     try {
       await validateOtp(otpCode);
-      router.push('/dashboard');
+      router.push('/playground');
     } catch (error) {
       console.error('OTP validation failed:', error);
     }

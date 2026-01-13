@@ -1,10 +1,11 @@
 'use client'
 
 import { motion, useScroll } from 'framer-motion'
-import { GithubIcon, Zap, Users, Link as LinkIcon } from 'lucide-react'
+import { Zap, Users, Link as LinkIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import NavBar from '@/components/NavBar'
 
 export default function Home() {
   const { scrollYProgress } = useScroll()
@@ -31,75 +32,7 @@ export default function Home() {
       </div>
 
       {/* Navigation */}
-      <motion.nav
-        initial={{ y: -100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="sticky top-0 z-50 px-6 py-4 backdrop-blur-lg border-b border-white/10"
-      >
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <motion.div
-            className="text-2xl font-bold bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent"
-            whileHover={{ scale: 1.05 }}
-          >
-            CodeJam
-          </motion.div>
-
-          <div className="flex gap-6 items-center">
-            <motion.a
-              href="#features"
-              className="text-gray-400 hover:text-white transition"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Features
-            </motion.a>
-            <motion.button
-              onClick={() => router.push('/playground')}
-              className="text-gray-400 hover:text-white transition"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Playground
-            </motion.button>
-            <motion.a
-              href="https://github.com/codejam-dev"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-400 hover:text-white transition"
-              whileHover={{ scale: 1.1, rotate: 5 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <GithubIcon className="w-5 h-5" />
-            </motion.a>
-            {authState.isAuthenticated ? (
-              <motion.button
-                onClick={() => router.push('/dashboard')}
-                className="px-6 py-2 bg-gradient-to-r from-violet-600 to-pink-600 rounded-lg font-semibold cursor-pointer"
-                whileHover={{
-                  scale: 1.05,
-                  boxShadow: "0 0 30px rgba(139, 92, 246, 0.5)"
-                }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Dashboard
-              </motion.button>
-            ) : (
-              <motion.button
-                onClick={() => router.push('/auth/register')}
-                className="px-6 py-2 bg-gradient-to-r from-violet-600 to-pink-600 rounded-lg font-semibold cursor-pointer"
-                whileHover={{
-                  scale: 1.05,
-                  boxShadow: "0 0 30px rgba(139, 92, 246, 0.5)"
-                }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Sign Up
-              </motion.button>
-            )}
-          </div>
-        </div>
-      </motion.nav>
+      <NavBar />
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center px-6 py-24">
@@ -390,7 +323,7 @@ function FloatingCodeMockup() {
       }
     }, 50)
     return () => clearInterval(interval)
-  }, [])
+  }, [fullCode])
 
   return (
     <motion.div

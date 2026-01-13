@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Split from 'react-split';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -34,6 +34,7 @@ import {
   getDefaultCode,
 } from '@/lib/language-templates';
 import { PlaygroundService } from '@/services/playground.service';
+import { getCommandKey } from '@/utils/platform';
 
 export default function CodePlayground() {
   const [state, setState] = useState<PlaygroundState>({
@@ -52,12 +53,29 @@ export default function CodePlayground() {
     cursorPosition: { line: 1, column: 1 },
   });
 
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [isLanguageChanging, setIsLanguageChanging] = useState(false);
   const [isDarkTheme, setIsDarkTheme] = useState(true);
   const [showInputPanel, setShowInputPanel] = useState(false);
   const [participantsCount, setParticipantsCount] = useState(1); // Mock for now
+  const languageDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close language dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (languageDropdownRef.current && !languageDropdownRef.current.contains(event.target as Node)) {
+        setShowLanguageDropdown(false);
+      }
+    };
+
+    if (showLanguageDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showLanguageDropdown]);
 
   // Load saved state on mount
   useEffect(() => {
@@ -172,7 +190,7 @@ export default function CodePlayground() {
   const fileName = `Main${currentLanguage.extension}`;
 
   return (
-    <div className="flex flex-col h-screen bg-[#0a0a0f] text-white relative overflow-hidden">
+    <div className="flex flex-col h-full bg-[#0a0a0f] text-white relative overflow-hidden">
       {/* Animated Background */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 -left-4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl animate-pulse" />
@@ -181,11 +199,11 @@ export default function CodePlayground() {
       </div>
 
       {/* Premium Header Toolbar */}
-      <div className="flex items-center justify-between px-6 py-3.5 bg-gradient-to-b from-gray-900/95 via-gray-800/95 to-gray-900/95 border-b border-gray-700/50 backdrop-blur-xl relative z-50 shadow-2xl shadow-black/20">
+      <div className="flex items-center justify-between px-6 py-3.5 bg-gradient-to-b from-gray-900/95 via-gray-800/95 to-gray-900/95 border-b border-gray-700/50 backdrop-blur-xl relative z-40 shadow-2xl shadow-black/20">
         {/* Left Section: Language & File Info */}
         <div className="flex items-center gap-4">
           {/* Language Selector - Redesigned */}
-          <div className="relative">
+          <div className="relative" ref={languageDropdownRef}>
             <button
               onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
               className="flex items-center gap-2.5 px-4 py-2.5 bg-gray-800/60 hover:bg-gray-700/60 border border-gray-600/50 rounded-xl transition-all duration-200 hover:border-violet-500/50 hover:shadow-lg hover:shadow-violet-500/10"
@@ -210,6 +228,7 @@ export default function CodePlayground() {
                   transition={{ duration: 0.2 }}
                   className="absolute top-full left-0 mt-2 w-64 bg-gray-800/98 backdrop-blur-xl border border-gray-700/60 rounded-2xl shadow-2xl overflow-hidden z-[9999]"
                   style={{ boxShadow: '0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(139, 92, 246, 0.15)' }}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <div className="py-2">
                     {SUPPORTED_LANGUAGES.map((lang) => {
@@ -277,18 +296,6 @@ export default function CodePlayground() {
 
         {/* Center Section: Run Button */}
         <div className="flex items-center gap-3">
-          {/* Keyboard Shortcut Hint */}
-          <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-gray-800/40 rounded-lg border border-gray-700/30">
-            <kbd className="px-2 py-1 bg-gray-700/50 border border-gray-600/50 rounded text-xs font-mono text-gray-300 shadow-inner">
-              {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}
-            </kbd>
-            <span className="text-xs text-gray-400">+</span>
-            <kbd className="px-2 py-1 bg-gray-700/50 border border-gray-600/50 rounded text-xs font-mono text-gray-300 shadow-inner">
-              Enter
-            </kbd>
-            <span className="text-xs text-gray-500 ml-1">to run</span>
-          </div>
-
           {/* Premium Run Button */}
           <motion.button
             onClick={handleRunCode}
@@ -332,31 +339,38 @@ export default function CodePlayground() {
             )}
           </motion.button>
 
-          <motion.button
+          {/* TODO: Implement settings panel in future sprint */}
+          {/* <motion.button
             whileHover={{ scale: 1.1, rotate: 180 }}
             transition={{ duration: 0.3 }}
             className="p-2.5 hover:bg-gray-700/50 rounded-xl transition-colors group border border-transparent hover:border-gray-600/50"
             title="Settings"
           >
             <Settings className="w-4.5 h-4.5 text-gray-400 group-hover:text-violet-400" />
-          </motion.button>
-          <motion.button
+          </motion.button> */}
+          
+          {/* TODO: Implement code download functionality in future sprint */}
+          {/* <motion.button
             whileHover={{ scale: 1.1, y: -2 }}
             transition={{ duration: 0.2 }}
             className="p-2.5 hover:bg-gray-700/50 rounded-xl transition-colors group border border-transparent hover:border-gray-600/50"
             title="Download Code"
           >
             <Download className="w-4.5 h-4.5 text-gray-400 group-hover:text-cyan-400" />
-          </motion.button>
-          <motion.button
+          </motion.button> */}
+          
+          {/* TODO: Implement share functionality in future sprint */}
+          {/* <motion.button
             whileHover={{ scale: 1.1 }}
             transition={{ duration: 0.2 }}
             className="p-2.5 hover:bg-gray-700/50 rounded-xl transition-colors group border border-transparent hover:border-gray-600/50"
             title="Share"
           >
             <Share2 className="w-4.5 h-4.5 text-gray-400 group-hover:text-pink-400" />
-          </motion.button>
-          <motion.button
+          </motion.button> */}
+          
+          {/* TODO: Implement fullscreen mode in future sprint */}
+          {/* <motion.button
             onClick={() => setIsFullscreen(!isFullscreen)}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
@@ -368,7 +382,7 @@ export default function CodePlayground() {
             ) : (
               <Maximize2 className="w-4.5 h-4.5 text-gray-400 group-hover:text-violet-400" />
             )}
-          </motion.button>
+          </motion.button> */}
         </div>
       </div>
 
@@ -440,6 +454,7 @@ export default function CodePlayground() {
               input={state.input}
               onInputChange={(input) => setState((prev) => ({ ...prev, input }))}
               onToggleInputPanel={() => setShowInputPanel(!showInputPanel)}
+              onRunCode={handleRunCode}
             />
           </div>
 
@@ -529,13 +544,6 @@ export default function CodePlayground() {
         </div>
       </div>
 
-      {/* Click outside to close dropdown */}
-      {showLanguageDropdown && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setShowLanguageDropdown(false)}
-        />
-      )}
     </div>
   );
 }

@@ -23,7 +23,6 @@ export class PlaygroundService {
       // Map frontend language to backend enum format
       const languageMap: Record<SupportedLanguage, string> = {
         javascript: 'JAVASCRIPT',
-        typescript: 'JAVASCRIPT', // TypeScript not supported, use JavaScript
         python: 'PYTHON',
         java: 'JAVA',
         cpp: 'CPP',
@@ -91,7 +90,6 @@ export class PlaygroundService {
     // Mock successful execution for most cases
     const mockOutputs: Record<SupportedLanguage, string> = {
       javascript: 'Hello, CodeJam!\nFibonacci(10): 55',
-      typescript: 'Hello, CodeJam!\nHello, World!\nAlice is 30 years old.',
       python: 'Hello, CodeJam!\nFibonacci(10): 55\nSquares: [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]',
       java: 'Hello, CodeJam!\nFibonacci(10): 55',
       cpp: 'Hello, CodeJam!\nFibonacci(10): 55\nNumbers: 1 2 3 4 5',

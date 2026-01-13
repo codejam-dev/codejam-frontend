@@ -38,7 +38,7 @@ export default function OAuthCallbackPage() {
         await exchangeOAuthCode(code);
         setStatus('success');
         setTimeout(() => {
-          router.push('/dashboard');
+          router.push('/playground');
         }, 1000);
       } catch (err) {
         setStatus('error');
@@ -89,7 +89,7 @@ export default function OAuthCallbackPage() {
                 Success!
               </h2>
               <p className="mt-2 text-sm text-gray-400">
-                Redirecting to dashboard...
+                Redirecting to playground...
               </p>
             </>
           )}

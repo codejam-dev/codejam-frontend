@@ -6,7 +6,6 @@ import { IconType } from 'react-icons';
 
 export type SupportedLanguage =
   | 'javascript'
-  | 'typescript'
   | 'python'
   | 'java'
   | 'cpp'
