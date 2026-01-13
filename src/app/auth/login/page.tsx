@@ -1,18 +1,45 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/auth.service';
 import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, initiateGoogleLogin, authState, clearError } = useAuth();
+  const [urlError, setUrlError] = useState<string | null>(null);
 
   useEffect(() => {
     clearError();
-  }, [clearError]);
+    
+    // Check for error parameters in URL (from OAuth failure redirect)
+    const error = searchParams.get('error');
+    const errorMessage = searchParams.get('errorMessage');
+    
+    if (errorMessage) {
+      setUrlError(errorMessage);
+      // Clear the error from URL
+      const newSearchParams = new URLSearchParams(searchParams.toString());
+      newSearchParams.delete('error');
+      newSearchParams.delete('errorMessage');
+      const newUrl = newSearchParams.toString() 
+        ? `${window.location.pathname}?${newSearchParams.toString()}`
+        : window.location.pathname;
+      router.replace(newUrl);
+    } else if (error && error !== 'oauth_failed') {
+      // Handle other error types
+      setUrlError('Authentication failed. Please try again.');
+      const newSearchParams = new URLSearchParams(searchParams.toString());
+      newSearchParams.delete('error');
+      const newUrl = newSearchParams.toString() 
+        ? `${window.location.pathname}?${newSearchParams.toString()}`
+        : window.location.pathname;
+      router.replace(newUrl);
+    }
+  }, [searchParams, router, clearError]);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -65,9 +92,9 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {authState.error && (
+        {(authState.error || urlError) && (
           <div className="bg-red-500/10 border border-red-500 text-red-400 px-4 py-3 rounded relative">
-            {authState.error}
+            {urlError || authState.error}
           </div>
         )}
 

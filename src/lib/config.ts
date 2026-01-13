@@ -37,6 +37,6 @@ export const API_ENDPOINTS = {
     HEALTH: `${API_CONFIG.AUTH_BASE_URL}/health`,
   },
   PLAYGROUND: {
-    EXECUTE: `${API_CONFIG.BASE_URL}/api/playground/execute`,
+    EXECUTE: `${API_CONFIG.BASE_URL}/v1/api/execution/run`,
   },
 };

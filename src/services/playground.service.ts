@@ -15,28 +15,57 @@ import {
 export class PlaygroundService {
   /**
    * Execute code in the playground
-   * Currently uses mock data until backend is implemented
    */
   static async executeCode(
     request: CodeExecutionRequest
   ): Promise<CodeExecutionResponse> {
-    // TEMPORARY: Use mock execution until backend is ready
-    return this.mockExecuteCode(request);
-
-    // PRODUCTION: Uncomment this when backend is ready
-    /*
     try {
-      const response = await ApiClient.post<CodeExecutionResponse>(
-        API_ENDPOINTS.PLAYGROUND.EXECUTE,
-        request,
-        false // No auth required for playground execution
-      );
+      // Map frontend language to backend enum format
+      const languageMap: Record<SupportedLanguage, string> = {
+        javascript: 'JAVASCRIPT',
+        typescript: 'JAVASCRIPT', // TypeScript not supported, use JavaScript
+        python: 'PYTHON',
+        java: 'JAVA',
+        cpp: 'CPP',
+        c: 'C',
+        go: 'GO',
+        rust: 'RUST',
+      };
 
-      if (response.success && response.data) {
-        return response.data;
+      // Prepare backend request
+      const backendRequest = {
+        roomId: 'playground', // Default room ID for playground
+        language: languageMap[request.language] || 'JAVASCRIPT',
+        code: request.code,
+      };
+
+      // Call the execution API
+      const response = await fetch(API_ENDPOINTS.PLAYGROUND.EXECUTE, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(backendRequest),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      throw new Error(response.message || 'Code execution failed');
+      // Backend returns ExecutionResult directly (not wrapped)
+      const result = await response.json();
+
+      // Map backend response to frontend format
+      return {
+        stdout: result.stdout || '',
+        stderr: result.stderr || result.errorMessage || '',
+        exitCode: result.exitCode ?? (result.status === 'SUCCESS' ? 0 : 1),
+        executionTime: result.executionTimeMs || 0,
+        error: result.status === 'SYSTEM_ERROR' || result.status === 'TIMEOUT' 
+          ? (result.errorMessage || result.status) 
+          : undefined,
+      };
     } catch (error: any) {
       // Return error response in the expected format
       return {
@@ -47,7 +76,6 @@ export class PlaygroundService {
         error: error.message || 'Unknown error occurred',
       };
     }
-    */
   }
 
   /**
