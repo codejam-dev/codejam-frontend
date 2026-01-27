@@ -15,9 +15,12 @@ import {
 export class PlaygroundService {
   /**
    * Execute code in the playground
+   * @param request - Code execution request
+   * @param token - Optional auth token (if not provided, will try to get from localStorage)
    */
   static async executeCode(
-    request: CodeExecutionRequest
+    request: CodeExecutionRequest,
+    token?: string | null
   ): Promise<CodeExecutionResponse> {
     try {
       // Map frontend language to backend enum format
@@ -38,18 +41,48 @@ export class PlaygroundService {
         code: request.code,
       };
 
+      // Get auth token - use provided token or try to get from localStorage
+      const authToken = token !== undefined ? token : this.getAuthToken();
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      } else {
+        // No token available - return error
+        return {
+          stdout: '',
+          stderr: 'Authentication required. Please log in to execute code.',
+          exitCode: 1,
+          executionTime: 0,
+          error: 'Authentication required',
+        };
+      }
+
       // Call the execution API
       const response = await fetch(API_ENDPOINTS.PLAYGROUND.EXECUTE, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(backendRequest),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        const errorMessage = errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+        
+        // Handle 401 specifically
+        if (response.status === 401) {
+          return {
+            stdout: '',
+            stderr: 'Authentication failed. Please log in again.',
+            exitCode: 1,
+            executionTime: 0,
+            error: 'Authentication failed',
+          };
+        }
+        
+        throw new Error(errorMessage);
       }
 
       // Backend returns ExecutionResult directly (not wrapped)
@@ -75,6 +108,30 @@ export class PlaygroundService {
         error: error.message || 'Unknown error occurred',
       };
     }
+  }
+
+  /**
+   * Get authentication token from localStorage
+   */
+  private static getAuthToken(): string | null {
+    if (typeof window === 'undefined') return null;
+
+    // Check for full auth token
+    const authToken = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    if (authToken) {
+      const trimmed = authToken.trim();
+      // Remove "Bearer " prefix if accidentally stored
+      return trimmed.startsWith('Bearer ') ? trimmed.substring(7).trim() : trimmed;
+    }
+
+    // Fall back to temp token (for OTP flow)
+    const tempToken = localStorage.getItem(STORAGE_KEYS.TEMP_TOKEN);
+    if (tempToken) {
+      const trimmed = tempToken.trim();
+      return trimmed.startsWith('Bearer ') ? trimmed.substring(7).trim() : trimmed;
+    }
+
+    return null;
   }
 
   /**

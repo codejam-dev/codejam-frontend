@@ -35,8 +35,10 @@ import {
 } from '@/lib/language-templates';
 import { PlaygroundService } from '@/services/playground.service';
 import { getCommandKey } from '@/utils/platform';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function CodePlayground() {
+  const { authState } = useAuth();
   const [state, setState] = useState<PlaygroundState>({
     language: 'javascript',
     code: '',
@@ -107,11 +109,15 @@ export default function CodePlayground() {
     setState((prev) => ({ ...prev, isExecuting: true, error: null }));
 
     try {
-      const result = await PlaygroundService.executeCode({
-        language: state.language,
-        code: state.code,
-        input: state.input,
-      });
+      // Pass the token from auth context
+      const result = await PlaygroundService.executeCode(
+        {
+          language: state.language,
+          code: state.code,
+          input: state.input,
+        },
+        authState.token
+      );
 
       setState((prev) => ({
         ...prev,
@@ -125,7 +131,7 @@ export default function CodePlayground() {
         isExecuting: false,
       }));
     }
-  }, [state.language, state.code, state.input]);
+  }, [state.language, state.code, state.input, authState.token]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
