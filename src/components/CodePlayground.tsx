@@ -193,7 +193,17 @@ export default function CodePlayground() {
   };
 
   const currentLanguage = LANGUAGE_TEMPLATES[state.language];
-  const fileName = `Main${currentLanguage.extension}`;
+
+  // For Java, extract the public class name from code to match file naming requirement
+  const getFileName = () => {
+    if (state.language === 'java') {
+      const match = state.code.match(/public\s+class\s+(\w+)/);
+      const className = match ? match[1] : 'Main';
+      return `${className}${currentLanguage.extension}`;
+    }
+    return `Main${currentLanguage.extension}`;
+  };
+  const fileName = getFileName();
 
   return (
     <motion.div
@@ -211,29 +221,42 @@ export default function CodePlayground() {
 
       {/* Premium Header Toolbar */}
       <motion.div
-        className="flex items-center justify-between px-6 py-3.5 bg-gradient-to-b from-gray-900/95 via-gray-800/95 to-gray-900/95 border-b border-gray-700/50 backdrop-blur-xl relative z-40 shadow-2xl shadow-black/20"
+        className="relative flex items-center justify-between px-6 py-3.5 bg-gradient-to-b from-gray-900/95 via-gray-800/95 to-gray-900/95 border-b border-gray-700/50 backdrop-blur-xl z-40 shadow-2xl shadow-black/20"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
       >
+        {/* Subtle gradient glow */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
+        <div className="absolute bottom-0 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-pink-500/30 to-transparent" />
         {/* Left Section: Language & File Info */}
         <div className="flex items-center gap-4">
           {/* Language Selector - Redesigned */}
           <div className="relative" ref={languageDropdownRef}>
-            <button
+            <motion.button
               onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
-              className="flex items-center gap-2.5 px-4 py-2.5 bg-gray-800/60 hover:bg-gray-700/60 border border-gray-600/50 rounded-xl transition-all duration-200 hover:border-violet-500/50 hover:shadow-lg hover:shadow-violet-500/10"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="relative flex items-center gap-2.5 px-4 py-2.5 bg-gray-800/60 border border-gray-600/50 rounded-xl transition-all duration-200 hover:border-transparent overflow-hidden group"
             >
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-700/50">
-                {typeof currentLanguage.icon === 'function' ? (
-                  <currentLanguage.icon className="w-5 h-5" style={{ color: currentLanguage.iconColor }} />
-                ) : (
-                  <span className="text-lg">{currentLanguage.icon}</span>
-                )}
+              {/* Gradient border on hover */}
+              <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-violet-500 via-pink-500 to-violet-500 p-[1px]">
+                <div className="h-full w-full bg-gray-800/95 rounded-xl" />
               </div>
-              <span className="font-semibold text-sm">{currentLanguage.name}</span>
-              <ChevronDown className="w-4 h-4 text-gray-400 transition-transform duration-200" style={{ transform: showLanguageDropdown ? 'rotate(180deg)' : 'rotate(0deg)' }} />
-            </button>
+
+              {/* Content - relative to show above gradient */}
+              <div className="relative flex items-center gap-2.5">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-700/50">
+                  {typeof currentLanguage.icon === 'function' ? (
+                    <currentLanguage.icon className="w-5 h-5" style={{ color: currentLanguage.iconColor }} />
+                  ) : (
+                    <span className="text-lg">{currentLanguage.icon}</span>
+                  )}
+                </div>
+                <span className="font-semibold text-sm">{currentLanguage.name}</span>
+                <ChevronDown className="w-4 h-4 text-gray-400 transition-transform duration-200" style={{ transform: showLanguageDropdown ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+              </div>
+            </motion.button>
 
             <AnimatePresence>
               {showLanguageDropdown && (
@@ -242,7 +265,7 @@ export default function CodePlayground() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute top-full left-0 mt-2 w-64 bg-gray-800/98 backdrop-blur-xl border border-gray-700/60 rounded-2xl shadow-2xl overflow-hidden z-[9999]"
+                  className="absolute top-full left-0 mt-2 w-64 bg-gray-800/98 backdrop-blur-xl border border-gray-700/60 rounded-2xl shadow-2xl overflow-hidden z-[100000]"
                   style={{ boxShadow: '0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(139, 92, 246, 0.15)' }}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -255,11 +278,10 @@ export default function CodePlayground() {
                           key={lang}
                           onClick={() => handleLanguageChange(lang)}
                           whileHover={{ x: 4, backgroundColor: 'rgba(139, 92, 246, 0.1)' }}
-                          className={`w-full flex items-center justify-between gap-3 px-4 py-3 transition-all ${
-                            isActive
+                          className={`w-full flex items-center justify-between gap-3 px-4 py-3 transition-all ${isActive
                               ? 'bg-gradient-to-r from-violet-500/20 to-pink-500/20 text-violet-400 border-l-3 border-violet-500'
                               : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-3">
                             <div className="flex items-center justify-center w-10 h-10 rounded-lg flex-shrink-0 bg-gray-700/30">
@@ -316,13 +338,13 @@ export default function CodePlayground() {
           <motion.button
             onClick={handleRunCode}
             disabled={state.isExecuting}
-            whileHover={{ scale: state.isExecuting ? 1 : 1.02 }}
-            whileTap={{ scale: state.isExecuting ? 1 : 0.98 }}
-            className="relative flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-violet-600 via-violet-500 to-blue-600 hover:from-violet-500 hover:via-violet-400 hover:to-blue-500 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-xl font-semibold text-sm shadow-xl shadow-violet-500/30 transition-all duration-300 disabled:hover:scale-100 overflow-hidden group"
+            whileHover={{ scale: state.isExecuting ? 1 : 1.05 }}
+            whileTap={{ scale: state.isExecuting ? 1 : 0.95 }}
+            className="relative flex items-center gap-2.5 px-8 py-3 bg-gradient-to-r from-violet-600 to-pink-600 hover:shadow-lg hover:shadow-violet-500/50 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-semibold text-sm shadow-lg transition-all duration-300 disabled:hover:scale-100 overflow-hidden group"
           >
             {/* Shimmer effect */}
             <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-            
+
             {/* Running animation overlay */}
             {state.isExecuting && (
               <motion.div
@@ -364,7 +386,7 @@ export default function CodePlayground() {
           >
             <Settings className="w-4.5 h-4.5 text-gray-400 group-hover:text-violet-400" />
           </motion.button> */}
-          
+
           {/* TODO: Implement code download functionality in future sprint */}
           {/* <motion.button
             whileHover={{ scale: 1.1, y: -2 }}
@@ -374,7 +396,7 @@ export default function CodePlayground() {
           >
             <Download className="w-4.5 h-4.5 text-gray-400 group-hover:text-cyan-400" />
           </motion.button> */}
-          
+
           {/* TODO: Implement share functionality in future sprint */}
           {/* <motion.button
             whileHover={{ scale: 1.1 }}
@@ -384,7 +406,7 @@ export default function CodePlayground() {
           >
             <Share2 className="w-4.5 h-4.5 text-gray-400 group-hover:text-pink-400" />
           </motion.button> */}
-          
+
           {/* TODO: Implement fullscreen mode in future sprint */}
           {/* <motion.button
             onClick={() => setIsFullscreen(!isFullscreen)}

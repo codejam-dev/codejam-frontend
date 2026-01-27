@@ -50,13 +50,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const user = AuthService.getUser();
       const isAuthenticated = AuthService.isAuthenticated();
 
-      setAuthState({
-        isAuthenticated,
-        user: isAuthenticated ? user : null,
-        token: isAuthenticated ? token : null,
-        loading: false,
-        error: null,
-      });
+      // If token exists but is expired, clear it
+      if (token && !isAuthenticated && AuthService.isTokenExpired(token)) {
+        // Token is expired, clear auth state
+        setAuthState({
+          isAuthenticated: false,
+          user: null,
+          token: null,
+          loading: false,
+          error: 'Your session has expired. Please log in again.',
+        });
+        // Clear expired token from storage
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('codejam_auth_token');
+          localStorage.removeItem('codejam_user_data');
+        }
+      } else {
+        setAuthState({
+          isAuthenticated,
+          user: isAuthenticated ? user : null,
+          token: isAuthenticated ? token : null,
+          loading: false,
+          error: null,
+        });
+      }
     };
 
     initAuth();

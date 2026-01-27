@@ -43,14 +43,9 @@ export class PlaygroundService {
 
       // Get auth token - use provided token or try to get from localStorage
       const authToken = token !== undefined ? token : this.getAuthToken();
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-
-      if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
-      } else {
-        // No token available - return error
+      
+      // Check if token exists and is not expired
+      if (!authToken) {
         return {
           stdout: '',
           stderr: 'Authentication required. Please log in to execute code.',
@@ -59,6 +54,22 @@ export class PlaygroundService {
           error: 'Authentication required',
         };
       }
+
+      // Check if token is expired
+      if (this.isTokenExpired(authToken)) {
+        return {
+          stdout: '',
+          stderr: 'Your session has expired. Please log in again.',
+          exitCode: 1,
+          executionTime: 0,
+          error: 'Token expired',
+        };
+      }
+
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      };
 
       // Call the execution API
       const response = await fetch(API_ENDPOINTS.PLAYGROUND.EXECUTE, {
@@ -132,6 +143,26 @@ export class PlaygroundService {
     }
 
     return null;
+  }
+
+  /**
+   * Check if token is expired
+   */
+  private static isTokenExpired(token: string): boolean {
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return true;
+      
+      const payload = JSON.parse(atob(parts[1]));
+      const exp = payload.exp;
+      
+      if (!exp) return true;
+      
+      // Check if token is expired (with 5 second buffer)
+      return exp * 1000 < Date.now() - 5000;
+    } catch {
+      return true;
+    }
   }
 
   /**

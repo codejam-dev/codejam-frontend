@@ -86,7 +86,7 @@ export default function OutputPanel({ output, isExecuting, onClear }: OutputPane
             </div>
             {activeTab === 'stdout' && (
               <motion.div
-                className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-400"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-violet-500 via-green-400 to-pink-500"
                 layoutId="activeTab"
               />
             )}
@@ -112,7 +112,7 @@ export default function OutputPanel({ output, isExecuting, onClear }: OutputPane
             </div>
             {activeTab === 'stderr' && (
               <motion.div
-                className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-400"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-violet-500 via-red-400 to-pink-500"
                 layoutId="activeTab"
               />
             )}
@@ -133,7 +133,7 @@ export default function OutputPanel({ output, isExecuting, onClear }: OutputPane
             </div>
             {activeTab === 'metrics' && (
               <motion.div
-                className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-400"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-violet-500 via-cyan-400 to-pink-500"
                 layoutId="activeTab"
               />
             )}
@@ -276,19 +276,23 @@ function OutputContent({ output, activeTab }: { output: CodeExecutionResponse; a
 
   useEffect(() => {
     if (!text) return;
-    
+
     const lines = text.split('\n');
     setDisplayedLines([]);
     setIsStreaming(true);
 
-    lines.forEach((line, index) => {
+    const timeoutIds = lines.map((line, index) =>
       setTimeout(() => {
         setDisplayedLines(prev => [...prev, line]);
         if (index === lines.length - 1) {
           setIsStreaming(false);
         }
-      }, index * 30); // 30ms delay per line for smooth streaming
-    });
+      }, index * 30) // 30ms delay per line for smooth streaming
+    );
+
+    return () => {
+      timeoutIds.forEach(clearTimeout);
+    };
   }, [text, activeTab]);
 
   // Auto-scroll to bottom

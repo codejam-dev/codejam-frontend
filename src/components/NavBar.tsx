@@ -1,29 +1,62 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GithubIcon, ChevronDown, LogOut, Code, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function NavBar() {
   const router = useRouter();
+  const pathname = usePathname();
   const { authState, logout } = useAuth();
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  
-  // Check if NavBar has already animated in this session
-  const hasAnimated = typeof window !== 'undefined' && sessionStorage.getItem('navbar-animated') === 'true';
+  const hasAnimatedRef = useRef(false);
+
+  // Check if NavBar has already animated in this session (only on client)
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== 'undefined') {
+      hasAnimatedRef.current = sessionStorage.getItem('navbar-animated') === 'true';
+    }
+  }, []);
 
   // Mark as animated after first animation completes
   useEffect(() => {
-    if (!hasAnimated) {
+    if (mounted && !hasAnimatedRef.current) {
       const timer = setTimeout(() => {
-        sessionStorage.setItem('navbar-animated', 'true');
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('navbar-animated', 'true');
+          hasAnimatedRef.current = true;
+        }
       }, 500); // After animation completes
       return () => clearTimeout(timer);
     }
-  }, [hasAnimated]);
+  }, [mounted]);
+
+  // Handle hash navigation on mount
+  useEffect(() => {
+    if (mounted && window.location.hash === '#features') {
+      setTimeout(() => {
+        const featuresSection = document.getElementById('features');
+        if (featuresSection) {
+          const navbarHeight = 80;
+          const elementPosition = featuresSection.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - navbarHeight;
+
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+          });
+
+          // Remove hash immediately
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }, 100);
+    }
+  }, [mounted]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -50,14 +83,44 @@ export default function NavBar() {
 
   const handleHomeClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    router.push('/');
+    if (pathname === '/') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      router.push('/');
+    }
   };
+
+  const handleFeaturesClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    const featuresSection = document.getElementById('features');
+    if (featuresSection) {
+      // Get the position of the features section
+      const navbarHeight = 80; // Approximate navbar height
+      const elementPosition = featuresSection.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - navbarHeight;
+
+      // Smooth scroll to position
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+
+      // Remove hash from URL to allow normal scroll behavior
+      window.history.replaceState(null, '', window.location.pathname);
+    } else {
+      // If not on home page, navigate to home with hash
+      router.push('/#features');
+    }
+  };
+
+  // Determine if we should animate (only after mount and if not animated before)
+  const shouldAnimate = mounted && !hasAnimatedRef.current;
 
   return (
     <motion.nav
-      initial={hasAnimated ? false : { y: -100, opacity: 0 }}
+      initial={shouldAnimate ? { y: -100, opacity: 0 } : false}
       animate={{ y: 0, opacity: 1 }}
-      transition={hasAnimated ? { duration: 0 } : { duration: 0.5 }}
+      transition={shouldAnimate ? { duration: 0.5 } : { duration: 0 }}
       className="sticky top-0 z-[100] px-6 py-4 backdrop-blur-lg border-b border-white/10 bg-[#0a0a0f]/80"
     >
       <div className="max-w-7xl mx-auto relative flex justify-between items-center">
@@ -75,7 +138,8 @@ export default function NavBar() {
         <div className="hidden md:flex gap-8 items-center absolute left-1/2 transform -translate-x-1/2 z-10">
           <motion.a
             href="#features"
-            className="text-gray-400 hover:text-white transition text-sm font-medium"
+            onClick={handleFeaturesClick}
+            className="text-gray-400 hover:text-white transition text-sm font-medium cursor-pointer"
             whileHover={{ scale: 1.1, y: -2 }}
             whileTap={{ scale: 0.95 }}
           >

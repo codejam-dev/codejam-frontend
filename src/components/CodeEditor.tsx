@@ -37,14 +37,20 @@ export default function CodeEditor({
   onRunCode,
 }: CodeEditorProps) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const onRunCodeRef = useRef(onRunCode);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Keep ref in sync with latest callback
+  useEffect(() => {
+    onRunCodeRef.current = onRunCode;
+  }, [onRunCode]);
 
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     setIsLoading(false);
 
     // Add Command+Enter (or Ctrl+Enter) keyboard shortcut to run code
-    if (onRunCode) {
+    {
       editor.addAction({
         id: 'run-code',
         label: 'Run Code',
@@ -52,7 +58,7 @@ export default function CodeEditor({
           monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter
         ],
         run: () => {
-          onRunCode();
+          onRunCodeRef.current?.();
         }
       });
     }

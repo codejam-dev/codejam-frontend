@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import NavBar from '@/components/NavBar'
+import ComingSoonFeatures from '@/components/ComingSoonFeatures'
 
 export default function Home() {
   const { scrollYProgress } = useScroll()
@@ -13,7 +14,7 @@ export default function Home() {
   const { authState } = useAuth()
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white overflow-hidden">
+    <div className="min-h-screen bg-[#0a0a0f] text-white">
       {/* Animated Background */}
       <div className="fixed inset-0 -z-10">
         <motion.div
@@ -166,7 +167,7 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="px-6 py-32">
+      <section id="features" className="px-6 py-32">
         <div className="max-w-7xl mx-auto">
           <motion.h2
             className="text-4xl md:text-5xl font-bold text-center mb-16"
@@ -208,6 +209,9 @@ export default function Home() {
 
       {/* Stats Section */}
       <StatsSection />
+
+      {/* Coming Soon Features Section */}
+      <ComingSoonFeatures />
 
       {/* CTA Section */}
       <section className="px-6 py-32 relative">
@@ -285,18 +289,32 @@ export default function Home() {
 
           <div className="pt-8 border-t border-zinc-800 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-gray-500">
-              © 2024 CodeJam. Built with ❤️ by developers
+              © 2024 CodeJam. Built with ❤️ by{' '}
+              <a
+                href="https://github.com/TonyStark0801"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white transition-colors"
+              >
+                Shubam Mishra
+              </a>
             </p>
 
             <div className="flex gap-6">
-              {['GitHub', 'Twitter', 'Discord'].map((social) => (
+              {[
+                { name: 'GitHub', url: 'https://github.com/codejam-dev' },
+                { name: 'Twitter', url: '#' },
+                { name: 'Discord', url: '#' }
+              ].map((social) => (
                 <motion.a
-                  key={social}
-                  href="#"
+                  key={social.name}
+                  href={social.url}
+                  target={social.url.startsWith('http') ? '_blank' : undefined}
+                  rel={social.url.startsWith('http') ? 'noopener noreferrer' : undefined}
                   className="text-gray-500 hover:text-white transition text-sm"
                   whileHover={{ y: -2 }}
                 >
-                  {social}
+                  {social.name}
                 </motion.a>
               ))}
             </div>
@@ -412,11 +430,11 @@ function FeatureCard({ feature, index }: { feature: any; index: number }) {
 
         {/* Hover Border Glow */}
         <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-             style={{
-               background: `linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(236, 72, 153, 0.2))`,
-               filter: 'blur(20px)',
-               zIndex: -1
-             }}
+          style={{
+            background: `linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(236, 72, 153, 0.2))`,
+            filter: 'blur(20px)',
+            zIndex: -1
+          }}
         />
       </motion.div>
     </motion.div>
@@ -522,7 +540,7 @@ function MagneticButton() {
 
 // Component: Particles Background
 function ParticlesBackground() {
-  const [particles, setParticles] = useState<Array<{left: number, top: number, duration: number, delay: number}>>([]);
+  const [particles, setParticles] = useState<Array<{ left: number, top: number, duration: number, delay: number }>>([]);
 
   useEffect(() => {
     // Generate particles only on client side to avoid hydration mismatch
