@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/auth.service';
 import Link from 'next/link';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login, initiateGoogleLogin, authState, clearError } = useAuth();
@@ -14,18 +14,20 @@ export default function LoginPage() {
 
   useEffect(() => {
     clearError();
-    
+
+    if (!searchParams) return;
+
     // Check for error parameters in URL (from OAuth failure redirect)
     const error = searchParams.get('error');
     const errorMessage = searchParams.get('errorMessage');
-    
+
     if (errorMessage) {
       setUrlError(errorMessage);
       // Clear the error from URL
       const newSearchParams = new URLSearchParams(searchParams.toString());
       newSearchParams.delete('error');
       newSearchParams.delete('errorMessage');
-      const newUrl = newSearchParams.toString() 
+      const newUrl = newSearchParams.toString()
         ? `${window.location.pathname}?${newSearchParams.toString()}`
         : window.location.pathname;
       router.replace(newUrl);
@@ -34,7 +36,7 @@ export default function LoginPage() {
       setUrlError('Authentication failed. Please try again.');
       const newSearchParams = new URLSearchParams(searchParams.toString());
       newSearchParams.delete('error');
-      const newUrl = newSearchParams.toString() 
+      const newUrl = newSearchParams.toString()
         ? `${window.location.pathname}?${newSearchParams.toString()}`
         : window.location.pathname;
       router.replace(newUrl);
@@ -59,11 +61,11 @@ export default function LoginPage() {
     e.preventDefault();
     try {
       await login(formData.email, formData.password);
-      
+
       // Check if user has temp token (unverified user)
       const tempToken = AuthService.getTempToken();
       const pendingEmail = AuthService.getPendingEmail();
-      
+
       if (tempToken && pendingEmail) {
         // User is not enabled, redirect to OTP verification
         router.push('/auth/verify-otp');
@@ -209,5 +211,17 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black">
+        <div className="text-white">Loading...</div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }

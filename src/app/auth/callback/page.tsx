@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
-export default function OAuthCallbackPage() {
+function OAuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { exchangeOAuthCode } = useAuth();
@@ -13,6 +13,8 @@ export default function OAuthCallbackPage() {
 
   useEffect(() => {
     const handleOAuthCallback = async () => {
+      if (!searchParams) return;
+
       const code = searchParams.get('code');
       const error = searchParams.get('error');
 
@@ -125,5 +127,17 @@ export default function OAuthCallbackPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function OAuthCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black">
+        <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-600 border-t-blue-500"></div>
+      </div>
+    }>
+      <OAuthCallbackContent />
+    </Suspense>
   );
 }
