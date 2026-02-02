@@ -17,6 +17,14 @@ function LoginContent() {
 
     if (!searchParams) return;
 
+    // Check for session expiry redirect
+    const expired = searchParams.get('expired');
+    if (expired === 'true') {
+      setUrlError('Your session has expired. Please log in again.');
+      router.replace('/auth/login');
+      return;
+    }
+
     // Check for error parameters in URL (from OAuth failure redirect)
     const error = searchParams.get('error');
     const errorMessage = searchParams.get('errorMessage');

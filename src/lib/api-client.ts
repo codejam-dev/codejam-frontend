@@ -78,6 +78,9 @@ export class ApiClient {
           if (typeof window !== 'undefined') {
             localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
             localStorage.removeItem(STORAGE_KEYS.TEMP_TOKEN);
+            localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+            // Redirect to login on session expiry
+            window.location.href = '/auth/login?expired=true';
           }
         }
         throw new ApiError(
