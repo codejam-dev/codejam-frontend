@@ -45,24 +45,14 @@ export class PlaygroundService {
       const authToken = token !== undefined ? token : this.getAuthToken();
       
       // Check if token exists and is not expired
-      if (!authToken) {
+      if (!authToken || this.isTokenExpired(authToken)) {
+        this.handleSessionExpired();
+        // Return a placeholder - the redirect will happen
         return {
           stdout: '',
-          stderr: 'Authentication required. Please log in to execute code.',
-          exitCode: 1,
+          stderr: '',
+          exitCode: 0,
           executionTime: 0,
-          error: 'Authentication required',
-        };
-      }
-
-      // Check if token is expired
-      if (this.isTokenExpired(authToken)) {
-        return {
-          stdout: '',
-          stderr: 'Your session has expired. Please log in again.',
-          exitCode: 1,
-          executionTime: 0,
-          error: 'Token expired',
         };
       }
 
@@ -79,20 +69,19 @@ export class PlaygroundService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.message || `HTTP ${response.status}: ${response.statusText}`;
-        
-        // Handle 401 specifically
+        // Handle 401 - redirect to login
         if (response.status === 401) {
+          this.handleSessionExpired();
           return {
             stdout: '',
-            stderr: 'Authentication failed. Please log in again.',
-            exitCode: 1,
+            stderr: '',
+            exitCode: 0,
             executionTime: 0,
-            error: 'Authentication failed',
           };
         }
-        
+
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.message || `HTTP ${response.status}: ${response.statusText}`;
         throw new Error(errorMessage);
       }
 
@@ -152,17 +141,32 @@ export class PlaygroundService {
     try {
       const parts = token.split('.');
       if (parts.length !== 3) return true;
-      
+
       const payload = JSON.parse(atob(parts[1]));
       const exp = payload.exp;
-      
+
       if (!exp) return true;
-      
+
       // Check if token is expired (with 5 second buffer)
       return exp * 1000 < Date.now() - 5000;
     } catch {
       return true;
     }
+  }
+
+  /**
+   * Handle session expiry - clear tokens and redirect to login
+   */
+  private static handleSessionExpired(): void {
+    if (typeof window === 'undefined') return;
+
+    // Clear all auth tokens
+    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.TEMP_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+
+    // Redirect to login with expired flag
+    window.location.href = '/auth/login?expired=true';
   }
 
   /**
