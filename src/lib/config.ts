@@ -38,5 +38,6 @@ export const API_ENDPOINTS = {
   },
   PLAYGROUND: {
     EXECUTE: `${API_CONFIG.BASE_URL}/v1/api/execution/run`,
+    HISTORY: `${API_CONFIG.BASE_URL}/v1/api/execution/history`,
   },
 };

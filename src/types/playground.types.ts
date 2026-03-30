@@ -67,3 +67,20 @@ export interface EditorStats {
   characters: number;
   cursorPosition: CursorPosition;
 }
+
+/** Backend execution status */
+export type RunStatus = 'SUCCESS' | 'ERROR' | 'TIMEOUT' | 'SYSTEM_ERROR';
+
+export interface RunHistoryItem {
+  id: number;
+  roomId: string;
+  language: string; // e.g. JAVASCRIPT, PYTHON, JAVA
+  code: string;
+  status: RunStatus;
+  stdout: string | null;
+  stderr: string | null;
+  exitCode: number | null;
+  executionTimeMs: number | null;
+  errorMessage: string | null;
+  createdAt: string; // ISO date
+}

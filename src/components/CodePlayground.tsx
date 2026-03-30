@@ -16,16 +16,19 @@ import {
   FileCode,
   Users,
   Radio,
+  History,
 } from 'lucide-react';
 import CodeEditor from './CodeEditor';
 import OutputPanel from './OutputPanel';
 import ExecutionMetrics from './ExecutionMetrics';
+import RunHistoryPanel from './RunHistoryPanel';
 import {
   SupportedLanguage,
   CodeExecutionResponse,
   EditorSettings,
   EditorStats,
   PlaygroundState,
+  RunHistoryItem,
 } from '@/types/playground.types';
 import {
   LANGUAGE_TEMPLATES,
@@ -60,6 +63,10 @@ export default function CodePlayground() {
   const [isDarkTheme, setIsDarkTheme] = useState(true);
   const [showInputPanel, setShowInputPanel] = useState(false);
   const [participantsCount, setParticipantsCount] = useState(1); // Mock for now
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+  const [historyRuns, setHistoryRuns] = useState<RunHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedHistoryRun, setSelectedHistoryRun] = useState<RunHistoryItem | null>(null);
   const languageDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close language dropdown when clicking outside
@@ -124,6 +131,7 @@ export default function CodePlayground() {
         output: result,
         isExecuting: false,
       }));
+      PlaygroundService.getRunHistory(authState.token).then(setHistoryRuns);
     } catch (error: any) {
       setState((prev) => ({
         ...prev,
@@ -180,6 +188,18 @@ export default function CodePlayground() {
   const handleClearOutput = () => {
     setState((prev) => ({ ...prev, output: null, error: null }));
   };
+
+  const openHistoryPanel = useCallback(async () => {
+    setShowHistoryPanel(true);
+    setHistoryLoading(true);
+    setSelectedHistoryRun(null);
+    try {
+      const runs = await PlaygroundService.getRunHistory(authState.token);
+      setHistoryRuns(runs);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [authState.token]);
 
   const toggleTheme = () => {
     setIsDarkTheme(!isDarkTheme);
@@ -332,8 +352,18 @@ export default function CodePlayground() {
           </div>
         </div>
 
-        {/* Center Section: Run Button */}
+        {/* Center Section: Run Button & History */}
         <div className="flex items-center gap-3">
+          <motion.button
+            onClick={openHistoryPanel}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-800/60 border border-gray-600/50 rounded-lg hover:border-violet-500/50 hover:bg-gray-700/50 transition-all"
+            title="Run history"
+          >
+            <History className="w-4 h-4 text-violet-400" />
+            <span className="text-sm font-medium text-gray-300">History</span>
+          </motion.button>
           {/* Premium Run Button */}
           <motion.button
             onClick={handleRunCode}
@@ -587,6 +617,14 @@ export default function CodePlayground() {
         </div>
       </div>
 
+      <RunHistoryPanel
+        isOpen={showHistoryPanel}
+        onClose={() => setShowHistoryPanel(false)}
+        runs={historyRuns}
+        isLoading={historyLoading}
+        selectedRun={selectedHistoryRun}
+        onSelectRun={setSelectedHistoryRun}
+      />
     </motion.div>
   );
 }

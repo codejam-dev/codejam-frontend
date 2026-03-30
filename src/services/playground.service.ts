@@ -10,6 +10,7 @@ import {
   CodeExecutionResponse,
   SupportedLanguage,
   EditorSettings,
+  RunHistoryItem,
 } from '@/types/playground.types';
 
 export class PlaygroundService {
@@ -107,6 +108,43 @@ export class PlaygroundService {
         executionTime: 0,
         error: error.message || 'Unknown error occurred',
       };
+    }
+  }
+
+  /**
+   * Get last 10 run history for the authenticated user
+   */
+  static async getRunHistory(token?: string | null): Promise<RunHistoryItem[]> {
+    const authToken = token !== undefined ? token : this.getAuthToken();
+    if (!authToken || this.isTokenExpired(authToken)) {
+      this.handleSessionExpired();
+      return [];
+    }
+    try {
+      const response = await fetch(API_ENDPOINTS.PLAYGROUND.HISTORY, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      if (response.status === 401) {
+        this.handleSessionExpired();
+        return [];
+      }
+      if (!response.ok) {
+        return [];
+      }
+      const data = await response.json();
+      // Backend returns RunHistoryResponse: { runHistory: RunHistoryItemDto[] }
+      if (Array.isArray(data)) {
+        return data;
+      }
+      if (data && Array.isArray(data.runHistory)) {
+        return data.runHistory;
+      }
+      return [];
+    } catch {
+      return [];
     }
   }
 
