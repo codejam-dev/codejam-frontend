@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Custom breakpoint for extra small screens */
+@theme {
+  --breakpoint-xs: 480px;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;

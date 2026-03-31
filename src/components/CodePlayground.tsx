@@ -22,7 +22,14 @@ import CodeEditor from './CodeEditor';
 import OutputPanel from './OutputPanel';
 import ExecutionMetrics from './ExecutionMetrics';
 import RunHistoryPanel from './RunHistoryPanel';
-import { ExecutionConsole, ConsoleMessage } from '@/features/playground/components';
+import { 
+  ExecutionConsole, 
+  ConsoleMessage, 
+  MobileBottomSheet, 
+  FloatingRunButton, 
+  MobileHeader 
+} from '@/features/playground/components';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 import {
   SupportedLanguage,
   CodeExecutionResponse,
@@ -43,6 +50,8 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function CodePlayground() {
   const { authState } = useAuth();
+  const isMobile = useIsMobile();
+  const [mobileOutputOpen, setMobileOutputOpen] = useState(false);
   const [state, setState] = useState<PlaygroundState>({
     language: 'javascript',
     code: '',
@@ -250,9 +259,21 @@ export default function CodePlayground() {
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
       </div>
 
-      {/* Premium Header Toolbar */}
+      {/* Mobile Header */}
+      {isMobile && (
+        <MobileHeader
+          language={state.language}
+          onLanguageChange={handleLanguageChange}
+          fileName={fileName}
+          isDarkTheme={isDarkTheme}
+          onToggleTheme={toggleTheme}
+          onOpenHistory={openHistoryPanel}
+        />
+      )}
+
+      {/* Desktop Header Toolbar */}
       <motion.div
-        className="relative flex items-center justify-between px-6 py-3.5 bg-gradient-to-b from-gray-900/95 via-gray-800/95 to-gray-900/95 border-b border-gray-700/50 backdrop-blur-xl z-40 shadow-2xl shadow-black/20"
+        className={`relative flex items-center justify-between px-6 py-3.5 bg-gradient-to-b from-gray-900/95 via-gray-800/95 to-gray-900/95 border-b border-gray-700/50 backdrop-blur-xl z-40 shadow-2xl shadow-black/20 ${isMobile ? 'hidden' : ''}`}
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
@@ -465,35 +486,15 @@ export default function CodePlayground() {
         </div>
       </motion.div>
 
-      {/* Editor and Output Split View */}
-      <motion.div
-        className="flex-1 overflow-hidden"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.2 }}
-      >
-        <Split
-          className="flex h-full"
-          sizes={[60, 40]}
-          minSize={[300, 300]}
-          gutterSize={8}
-          snapOffset={30}
-          dragInterval={1}
-          direction="horizontal"
-          cursor="col-resize"
-          gutter={(index, direction) => {
-            const gutter = document.createElement('div');
-            gutter.className = 'gutter gutter-horizontal bg-gray-800 hover:bg-violet-500/30 transition-colors cursor-col-resize rounded';
-            return gutter;
-          }}
+      {/* Mobile Layout: Full-width Editor */}
+      {isMobile && (
+        <motion.div
+          className="flex-1 overflow-hidden pb-14"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
         >
-          {/* Editor Panel */}
           <div className="h-full bg-[#1e1e1e] relative">
-            {/* Glow effect border */}
-            <div className="absolute inset-0 bg-gradient-to-r from-violet-500/20 via-pink-500/20 to-cyan-500/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-lg" style={{ padding: '1px' }}>
-              <div className="w-full h-full bg-[#1e1e1e] rounded-lg" />
-            </div>
-
             {/* Language change transition overlay */}
             <AnimatePresence>
               {isLanguageChanging && (
@@ -501,12 +502,12 @@ export default function CodePlayground() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="absolute inset-0 bg-gradient-to-br from-violet-600/30 via-pink-600/30 to-cyan-600/30 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg"
+                  className="absolute inset-0 bg-gradient-to-br from-violet-600/30 via-pink-600/30 to-cyan-600/30 backdrop-blur-sm z-50 flex items-center justify-center"
                 >
                   <motion.div
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="flex items-center gap-3 px-6 py-3 bg-gray-900/80 border border-violet-500/50 rounded-xl"
+                    className="flex items-center gap-3 px-5 py-2.5 bg-gray-900/80 border border-violet-500/50 rounded-xl"
                   >
                     <motion.div
                       animate={{ rotate: 360 }}
@@ -516,12 +517,12 @@ export default function CodePlayground() {
                         const langIcon = LANGUAGE_TEMPLATES[state.language].icon;
                         if (typeof langIcon === 'function') {
                           const IconComponent = langIcon;
-                          return <IconComponent className="w-6 h-6" style={{ color: LANGUAGE_TEMPLATES[state.language].iconColor }} />;
+                          return <IconComponent className="w-5 h-5" style={{ color: LANGUAGE_TEMPLATES[state.language].iconColor }} />;
                         }
-                        return <span className="text-2xl">{langIcon}</span>;
+                        return <span className="text-xl">{langIcon}</span>;
                       })()}
                     </motion.div>
-                    <span className="text-white font-medium">Switching language...</span>
+                    <span className="text-white text-sm font-medium">Switching...</span>
                   </motion.div>
                 </motion.div>
               )}
@@ -541,35 +542,137 @@ export default function CodePlayground() {
               onRunCode={handleRunCode}
             />
           </div>
+        </motion.div>
+      )}
 
-          {/* Output Panel */}
-          <div className="h-full relative">
-            {/* Glow effect border */}
-            <div className="absolute inset-0 bg-gradient-to-l from-violet-500/20 via-pink-500/20 to-cyan-500/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-lg" style={{ padding: '1px' }}>
-              <div className="w-full h-full bg-gray-900 rounded-lg" />
+      {/* Desktop Layout: Split View */}
+      {!isMobile && (
+        <motion.div
+          className="flex-1 overflow-hidden"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+        >
+          <Split
+            className="flex h-full"
+            sizes={[60, 40]}
+            minSize={[300, 300]}
+            gutterSize={8}
+            snapOffset={30}
+            dragInterval={1}
+            direction="horizontal"
+            cursor="col-resize"
+            gutter={(index, direction) => {
+              const gutter = document.createElement('div');
+              gutter.className = 'gutter gutter-horizontal bg-gray-800 hover:bg-violet-500/30 transition-colors cursor-col-resize rounded';
+              return gutter;
+            }}
+          >
+            {/* Editor Panel */}
+            <div className="h-full bg-[#1e1e1e] relative">
+              {/* Glow effect border */}
+              <div className="absolute inset-0 bg-gradient-to-r from-violet-500/20 via-pink-500/20 to-cyan-500/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-lg" style={{ padding: '1px' }}>
+                <div className="w-full h-full bg-[#1e1e1e] rounded-lg" />
+              </div>
+
+              {/* Language change transition overlay */}
+              <AnimatePresence>
+                {isLanguageChanging && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-gradient-to-br from-violet-600/30 via-pink-600/30 to-cyan-600/30 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg"
+                  >
+                    <motion.div
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="flex items-center gap-3 px-6 py-3 bg-gray-900/80 border border-violet-500/50 rounded-xl"
+                    >
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                      >
+                        {(() => {
+                          const langIcon = LANGUAGE_TEMPLATES[state.language].icon;
+                          if (typeof langIcon === 'function') {
+                            const IconComponent = langIcon;
+                            return <IconComponent className="w-6 h-6" style={{ color: LANGUAGE_TEMPLATES[state.language].iconColor }} />;
+                          }
+                          return <span className="text-2xl">{langIcon}</span>;
+                        })()}
+                      </motion.div>
+                      <span className="text-white font-medium">Switching language...</span>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <CodeEditor
+                language={state.language}
+                value={state.code}
+                onChange={handleCodeChange}
+                settings={state.settings}
+                onStatsChange={setEditorStats}
+                fileName={fileName}
+                showInputPanel={showInputPanel}
+                input={state.input}
+                onInputChange={(input) => setState((prev) => ({ ...prev, input }))}
+                onToggleInputPanel={() => setShowInputPanel(!showInputPanel)}
+                onRunCode={handleRunCode}
+              />
             </div>
-            <OutputPanel
-              output={state.output}
-              isExecuting={state.isExecuting}
-              onClear={handleClearOutput}
-            />
-          </div>
-        </Split>
-      </motion.div>
 
-      {/* Bottom Execution Console Panel */}
-      <ExecutionConsole
-        output={state.output}
-        isExecuting={state.isExecuting}
-        onClear={handleClearOutput}
-        isCollapsed={isConsoleCollapsed}
-        onToggleCollapse={toggleConsole}
-        consoleMessages={consoleMessages}
-        onClearConsole={handleClearConsole}
-      />
+            {/* Output Panel */}
+            <div className="h-full relative">
+              {/* Glow effect border */}
+              <div className="absolute inset-0 bg-gradient-to-l from-violet-500/20 via-pink-500/20 to-cyan-500/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-lg" style={{ padding: '1px' }}>
+                <div className="w-full h-full bg-gray-900 rounded-lg" />
+              </div>
+              <OutputPanel
+                output={state.output}
+                isExecuting={state.isExecuting}
+                onClear={handleClearOutput}
+              />
+            </div>
+          </Split>
+        </motion.div>
+      )}
 
-      {/* Premium Status Bar */}
-      <div className="flex items-center justify-between px-6 py-2.5 bg-gradient-to-b from-gray-900/95 via-gray-800/95 to-gray-900/95 border-t border-gray-700/50 text-xs backdrop-blur-xl relative overflow-hidden shadow-lg shadow-black/10">
+      {/* Mobile: Bottom Sheet Output + Floating Run Button */}
+      {isMobile && (
+        <>
+          <MobileBottomSheet
+            output={state.output}
+            isExecuting={state.isExecuting}
+            onClear={handleClearOutput}
+            isOpen={mobileOutputOpen}
+            onToggle={() => setMobileOutputOpen(!mobileOutputOpen)}
+            consoleMessages={consoleMessages}
+            onClearConsole={handleClearConsole}
+          />
+          <FloatingRunButton
+            onClick={handleRunCode}
+            isExecuting={state.isExecuting}
+          />
+        </>
+      )}
+
+      {/* Desktop: Bottom Execution Console Panel */}
+      {!isMobile && (
+        <ExecutionConsole
+          output={state.output}
+          isExecuting={state.isExecuting}
+          onClear={handleClearOutput}
+          isCollapsed={isConsoleCollapsed}
+          onToggleCollapse={toggleConsole}
+          consoleMessages={consoleMessages}
+          onClearConsole={handleClearConsole}
+        />
+      )}
+
+      {/* Desktop: Premium Status Bar */}
+      <div className={`flex items-center justify-between px-6 py-2.5 bg-gradient-to-b from-gray-900/95 via-gray-800/95 to-gray-900/95 border-t border-gray-700/50 text-xs backdrop-blur-xl relative overflow-hidden shadow-lg shadow-black/10 ${isMobile ? 'hidden' : ''}`}>
         {/* Executing indicator animation */}
         {state.isExecuting && (
           <motion.div
