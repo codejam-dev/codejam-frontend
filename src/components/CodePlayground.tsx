@@ -22,6 +22,7 @@ import CodeEditor from './CodeEditor';
 import OutputPanel from './OutputPanel';
 import ExecutionMetrics from './ExecutionMetrics';
 import RunHistoryPanel from './RunHistoryPanel';
+import { ExecutionConsole, ConsoleMessage } from '@/features/playground/components';
 import {
   SupportedLanguage,
   CodeExecutionResponse,
@@ -67,6 +68,8 @@ export default function CodePlayground() {
   const [historyRuns, setHistoryRuns] = useState<RunHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedHistoryRun, setSelectedHistoryRun] = useState<RunHistoryItem | null>(null);
+  const [isConsoleCollapsed, setIsConsoleCollapsed] = useState(false);
+  const [consoleMessages, setConsoleMessages] = useState<ConsoleMessage[]>([]);
   const languageDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close language dropdown when clicking outside
@@ -187,6 +190,14 @@ export default function CodePlayground() {
 
   const handleClearOutput = () => {
     setState((prev) => ({ ...prev, output: null, error: null }));
+  };
+
+  const handleClearConsole = () => {
+    setConsoleMessages([]);
+  };
+
+  const toggleConsole = () => {
+    setIsConsoleCollapsed((prev) => !prev);
   };
 
   const openHistoryPanel = useCallback(async () => {
@@ -545,6 +556,17 @@ export default function CodePlayground() {
           </div>
         </Split>
       </motion.div>
+
+      {/* Bottom Execution Console Panel */}
+      <ExecutionConsole
+        output={state.output}
+        isExecuting={state.isExecuting}
+        onClear={handleClearOutput}
+        isCollapsed={isConsoleCollapsed}
+        onToggleCollapse={toggleConsole}
+        consoleMessages={consoleMessages}
+        onClearConsole={handleClearConsole}
+      />
 
       {/* Premium Status Bar */}
       <div className="flex items-center justify-between px-6 py-2.5 bg-gradient-to-b from-gray-900/95 via-gray-800/95 to-gray-900/95 border-t border-gray-700/50 text-xs backdrop-blur-xl relative overflow-hidden shadow-lg shadow-black/10">
