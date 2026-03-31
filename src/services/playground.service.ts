@@ -363,8 +363,64 @@ export class PlaygroundService {
       localStorage.removeItem(STORAGE_KEYS.PLAYGROUND_CODE);
       localStorage.removeItem(STORAGE_KEYS.PLAYGROUND_LANGUAGE);
       localStorage.removeItem(STORAGE_KEYS.PLAYGROUND_SETTINGS);
+      localStorage.removeItem(STORAGE_KEYS.PLAYGROUND_CONSOLE_LAYOUT);
     } catch (error) {
       console.error('Failed to clear playground data:', error);
     }
   }
+
+  /**
+   * Console layout preferences interface
+   */
+  static readonly DEFAULT_CONSOLE_LAYOUT: ConsoleLayoutPreferences = {
+    isCollapsed: false,
+    height: 280,
+    activeTab: 'stdout',
+  };
+
+  /**
+   * Save console layout preferences
+   */
+  static saveConsoleLayout(prefs: ConsoleLayoutPreferences): void {
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.PLAYGROUND_CONSOLE_LAYOUT,
+        JSON.stringify(prefs)
+      );
+    } catch (error) {
+      console.error('Failed to save console layout preferences:', error);
+    }
+  }
+
+  /**
+   * Get saved console layout preferences
+   */
+  static getSavedConsoleLayout(): ConsoleLayoutPreferences | null {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.PLAYGROUND_CONSOLE_LAYOUT);
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      // Validate the parsed object has expected properties
+      if (
+        typeof parsed.isCollapsed === 'boolean' &&
+        typeof parsed.height === 'number' &&
+        typeof parsed.activeTab === 'string'
+      ) {
+        return parsed;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to retrieve console layout preferences:', error);
+      return null;
+    }
+  }
+}
+
+/**
+ * Console layout preferences type
+ */
+export interface ConsoleLayoutPreferences {
+  isCollapsed: boolean;
+  height: number;
+  activeTab: 'stdout' | 'stderr' | 'console';
 }

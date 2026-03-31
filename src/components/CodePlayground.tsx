@@ -24,7 +24,8 @@ import ExecutionMetrics from './ExecutionMetrics';
 import RunHistoryPanel from './RunHistoryPanel';
 import { 
   ExecutionConsole, 
-  ConsoleMessage, 
+  ConsoleMessage,
+  ConsoleTab,
   MobileBottomSheet, 
   FloatingRunButton, 
   MobileHeader 

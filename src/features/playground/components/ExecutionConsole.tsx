@@ -27,6 +27,8 @@ interface ExecutionConsoleProps {
   onToggleCollapse: () => void;
   consoleMessages?: ConsoleMessage[];
   onClearConsole?: () => void;
+  activeTab?: ConsoleTab;
+  onTabChange?: (tab: ConsoleTab) => void;
 }
 
 export interface ConsoleMessage {
@@ -44,8 +46,20 @@ export default function ExecutionConsole({
   onToggleCollapse,
   consoleMessages = [],
   onClearConsole,
+  activeTab: controlledActiveTab,
+  onTabChange,
 }: ExecutionConsoleProps) {
-  const [activeTab, setActiveTab] = useState<ConsoleTab>('stdout');
+  const [internalActiveTab, setInternalActiveTab] = useState<ConsoleTab>('stdout');
+  
+  // Use controlled or internal state
+  const activeTab = controlledActiveTab ?? internalActiveTab;
+  const setActiveTab = (tab: ConsoleTab) => {
+    if (onTabChange) {
+      onTabChange(tab);
+    } else {
+      setInternalActiveTab(tab);
+    }
+  };
   const [copied, setCopied] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
