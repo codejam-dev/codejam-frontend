@@ -13,11 +13,10 @@ import {
   Trash2,
   Cpu,
   Zap,
-  X,
 } from 'lucide-react';
-import { CodeExecutionResponse } from '@/types/playground.types';
+import { CodeExecutionResponse, ConsoleWorkspaceTab } from '@/types/playground.types';
 
-export type ConsoleTab = 'stdout' | 'stderr' | 'console';
+export type ConsoleTab = ConsoleWorkspaceTab;
 
 interface ExecutionConsoleProps {
   output: CodeExecutionResponse | null;
@@ -25,10 +24,14 @@ interface ExecutionConsoleProps {
   onClear: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  activeTab: ConsoleWorkspaceTab;
+  onActiveTabChange: (tab: ConsoleWorkspaceTab) => void;
+  expandedHeightPx: number;
+  onExpandedHeightChange?: (height: number) => void;
   consoleMessages?: ConsoleMessage[];
   onClearConsole?: () => void;
-  activeTab?: ConsoleTab;
-  onTabChange?: (tab: ConsoleTab) => void;
+  /** Right-rail layout: fill parent flex, no collapse/resize chrome */
+  embedded?: boolean;
 }
 
 export interface ConsoleMessage {
@@ -44,22 +47,14 @@ export default function ExecutionConsole({
   onClear,
   isCollapsed,
   onToggleCollapse,
+  activeTab,
+  onActiveTabChange,
+  expandedHeightPx,
+  onExpandedHeightChange,
   consoleMessages = [],
   onClearConsole,
-  activeTab: controlledActiveTab,
-  onTabChange,
+  embedded = false,
 }: ExecutionConsoleProps) {
-  const [internalActiveTab, setInternalActiveTab] = useState<ConsoleTab>('stdout');
-  
-  // Use controlled or internal state
-  const activeTab = controlledActiveTab ?? internalActiveTab;
-  const setActiveTab = (tab: ConsoleTab) => {
-    if (onTabChange) {
-      onTabChange(tab);
-    } else {
-      setInternalActiveTab(tab);
-    }
-  };
   const [copied, setCopied] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -71,12 +66,36 @@ export default function ExecutionConsole({
   useEffect(() => {
     if (output) {
       if (hasStderr) {
-        setActiveTab('stderr');
+        onActiveTabChange('stderr');
       } else if (hasStdout) {
-        setActiveTab('stdout');
+        onActiveTabChange('stdout');
       }
     }
-  }, [output, hasStderr, hasStdout]);
+  }, [output, hasStderr, hasStdout, onActiveTabChange]);
+
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
+    if (!onExpandedHeightChange || isCollapsed) return;
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = expandedHeightPx;
+
+    const onMove = (ev: MouseEvent) => {
+      const delta = startY - ev.clientY;
+      onExpandedHeightChange(startHeight + delta);
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
 
   // Auto-scroll to bottom when content changes
   useEffect(() => {
@@ -118,15 +137,36 @@ export default function ExecutionConsole({
   const stdoutLines = getLineCount(output?.stdout);
   const stderrLines = getLineCount(output?.stderr) + getLineCount(output?.error);
 
+  const expanded = embedded ? true : !isCollapsed;
+
   return (
     <motion.div
       initial={false}
-      animate={{ height: isCollapsed ? 44 : 280 }}
+      animate={
+        embedded
+          ? undefined
+          : { height: isCollapsed ? 44 : expandedHeightPx }
+      }
       transition={{ duration: 0.3, ease: 'easeInOut' }}
-      className="flex flex-col bg-[#0d1117] border-t border-gray-800/50 overflow-hidden relative"
+      className={
+        embedded
+          ? 'relative flex min-h-0 flex-1 flex-col overflow-hidden border-t-0 bg-[#0d1117]'
+          : 'relative flex flex-col overflow-hidden border-t border-gray-800/50 bg-[#0d1117]'
+      }
     >
+      {/* Resize handle (drag up to grow console) */}
+      {!embedded && onExpandedHeightChange && !isCollapsed && (
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize console height"
+          onMouseDown={handleResizeMouseDown}
+          className="z-20 h-1.5 shrink-0 cursor-ns-resize border-b border-transparent transition-colors hover:border-violet-500/30 hover:bg-violet-500/25"
+        />
+      )}
+
       {/* Subtle glow line at top */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/30 to-transparent pointer-events-none" />
 
       {/* Header with tabs and collapse toggle */}
       <div className="flex items-center justify-between px-4 h-11 bg-gray-900/80 border-b border-gray-800/50 backdrop-blur-sm shrink-0">
@@ -134,7 +174,7 @@ export default function ExecutionConsole({
           {/* STDOUT Tab */}
           <TabButton
             isActive={activeTab === 'stdout'}
-            onClick={() => setActiveTab('stdout')}
+            onClick={() => onActiveTabChange('stdout')}
             icon={<Terminal className="w-3.5 h-3.5" />}
             label="STDOUT"
             count={stdoutLines}
@@ -145,7 +185,7 @@ export default function ExecutionConsole({
           {/* STDERR Tab */}
           <TabButton
             isActive={activeTab === 'stderr'}
-            onClick={() => setActiveTab('stderr')}
+            onClick={() => onActiveTabChange('stderr')}
             icon={<AlertCircle className="w-3.5 h-3.5" />}
             label="STDERR"
             count={stderrLines}
@@ -156,7 +196,7 @@ export default function ExecutionConsole({
           {/* Console Tab */}
           <TabButton
             isActive={activeTab === 'console'}
-            onClick={() => setActiveTab('console')}
+            onClick={() => onActiveTabChange('console')}
             icon={<MessageSquare className="w-3.5 h-3.5" />}
             label="CONSOLE"
             count={consoleMessages.length}
@@ -183,7 +223,7 @@ export default function ExecutionConsole({
           </AnimatePresence>
 
           {/* Copy button */}
-          {!isCollapsed && (
+          {(embedded || !isCollapsed) && (
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -200,7 +240,7 @@ export default function ExecutionConsole({
           )}
 
           {/* Clear button */}
-          {!isCollapsed && (
+          {(embedded || !isCollapsed) && (
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -213,25 +253,27 @@ export default function ExecutionConsole({
           )}
 
           {/* Collapse toggle */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={onToggleCollapse}
-            className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all border border-transparent hover:border-gray-700/50"
-            title={isCollapsed ? 'Expand console' : 'Collapse console'}
-          >
-            {isCollapsed ? (
-              <ChevronUp className="w-4 h-4" />
-            ) : (
-              <ChevronDown className="w-4 h-4" />
-            )}
-          </motion.button>
+          {!embedded && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onToggleCollapse}
+              className="rounded-lg border border-transparent p-2 text-gray-400 transition-all hover:border-gray-700/50 hover:bg-gray-800/50 hover:text-white"
+              title={isCollapsed ? 'Expand console' : 'Collapse console'}
+            >
+              {isCollapsed ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </motion.button>
+          )}
         </div>
       </div>
 
       {/* Content area */}
       <AnimatePresence mode="wait">
-        {!isCollapsed && (
+        {expanded && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

@@ -1,13 +1,16 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
 import { SupportedLanguage, EditorSettings, EditorStats } from '@/types/playground.types';
 import { getLanguageConfig } from '@/lib/language-templates';
 import * as monaco from 'monaco-editor';
-import { FileCode, ChevronRight, ChevronDown, ChevronUp, Terminal } from 'lucide-react';
+import { ChevronDown, ChevronUp, Terminal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getCommandKey } from '@/utils/platform';
+
+export interface CodeEditorHandle {
+  triggerFind: () => void;
+}
 
 interface CodeEditorProps {
   language: SupportedLanguage;
@@ -16,6 +19,8 @@ interface CodeEditorProps {
   settings: EditorSettings;
   onStatsChange?: (stats: EditorStats) => void;
   fileName: string;
+  /** Hide breadcrumb bar and ⌘Enter hint; use full height for Monaco only */
+  hideChrome?: boolean;
   showInputPanel?: boolean;
   input?: string;
   onInputChange?: (input: string) => void;
@@ -23,60 +28,60 @@ interface CodeEditorProps {
   onRunCode?: () => void;
 }
 
-export default function CodeEditor({
-  language,
-  value,
-  onChange,
-  settings,
-  onStatsChange,
-  fileName,
-  showInputPanel = false,
-  input = '',
-  onInputChange,
-  onToggleInputPanel,
-  onRunCode,
-}: CodeEditorProps) {
+const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function CodeEditor(
+  {
+    language,
+    value,
+    onChange,
+    settings,
+    onStatsChange,
+    fileName,
+    hideChrome = false,
+    showInputPanel = false,
+    input = '',
+    onInputChange,
+    onToggleInputPanel,
+    onRunCode,
+  },
+  ref
+) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const onRunCodeRef = useRef(onRunCode);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Keep ref in sync with latest callback
   useEffect(() => {
     onRunCodeRef.current = onRunCode;
   }, [onRunCode]);
+
+  useImperativeHandle(ref, () => ({
+    triggerFind: () => {
+      editorRef.current?.getAction('actions.find')?.run();
+    },
+  }));
 
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     setIsLoading(false);
 
-    // Add Command+Enter (or Ctrl+Enter) keyboard shortcut to run code
-    {
-      editor.addAction({
-        id: 'run-code',
-        label: 'Run Code',
-        keybindings: [
-          monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter
-        ],
-        run: () => {
-          onRunCodeRef.current?.();
-        }
-      });
-    }
+    editor.addAction({
+      id: 'run-code',
+      label: 'Run Code',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+      run: () => {
+        onRunCodeRef.current?.();
+      },
+    });
 
-    // Update stats on cursor position change
-    editor.onDidChangeCursorPosition((e) => {
+    editor.onDidChangeCursorPosition(() => {
       updateStats(editor);
     });
 
-    // Update stats on content change
     editor.onDidChangeModelContent(() => {
       updateStats(editor);
     });
 
-    // Initial stats
     updateStats(editor);
 
-    // Configure editor
     editor.updateOptions({
       fontSize: settings.fontSize,
       tabSize: settings.tabSize,
@@ -85,7 +90,7 @@ export default function CodeEditor({
       wordWrap: settings.wordWrap ? 'on' : 'off',
       scrollBeyondLastLine: false,
       automaticLayout: true,
-      padding: { top: 20, bottom: 20 },
+      padding: { top: hideChrome ? 12 : 20, bottom: hideChrome ? 12 : 20 },
       smoothScrolling: true,
       cursorBlinking: 'smooth',
       cursorSmoothCaretAnimation: 'on',
@@ -99,19 +104,17 @@ export default function CodeEditor({
     const position = editor.getPosition();
 
     if (model && position) {
-      const stats: EditorStats = {
+      onStatsChange({
         lines: model.getLineCount(),
         characters: model.getValueLength(),
         cursorPosition: {
           line: position.lineNumber,
           column: position.column,
         },
-      };
-      onStatsChange(stats);
+      });
     }
   };
 
-  // Update editor options when settings change
   useEffect(() => {
     if (editorRef.current) {
       editorRef.current.updateOptions({
@@ -120,46 +123,31 @@ export default function CodeEditor({
         minimap: { enabled: settings.minimap },
         lineNumbers: settings.lineNumbers ? 'on' : 'off',
         wordWrap: settings.wordWrap ? 'on' : 'off',
+        padding: { top: hideChrome ? 12 : 20, bottom: hideChrome ? 12 : 20 },
       });
     }
-  }, [settings]);
+  }, [settings, hideChrome]);
 
   const languageConfig = getLanguageConfig(language);
 
+  const showInputChrome = !hideChrome && onToggleInputPanel;
+
   return (
-    <div className="relative h-full w-full flex flex-col">
-      {/* Editor Header Bar with Breadcrumbs */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-gray-800/40 border-b border-gray-700/30 backdrop-blur-sm">
-        {/* Breadcrumbs */}
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-gray-500">Playground</span>
-          <ChevronRight className="w-3.5 h-3.5 text-gray-600" />
-          <div className="flex items-center gap-1.5">
-            <FileCode className="w-3.5 h-3.5 text-violet-400" />
-            <span className="text-gray-300 font-medium">{fileName}</span>
+    <div className="relative flex h-full w-full flex-col">
+      {!hideChrome && (
+        <div className="flex items-center justify-between border-b border-gray-700/30 bg-gray-800/40 px-4 py-2.5 backdrop-blur-sm">
+          <div className="flex items-center gap-2 text-sm text-gray-300">
+            <span className="font-medium">{fileName}</span>
           </div>
         </div>
+      )}
 
-        {/* Keyboard Shortcut Hint */}
-        <div className="flex items-center gap-2 text-xs text-gray-500">
-          <kbd className="px-2 py-0.5 bg-gray-700/50 border border-gray-600/50 rounded text-xs font-mono text-gray-400 shadow-inner">
-            {getCommandKey()}
-          </kbd>
-          <span>+</span>
-          <kbd className="px-2 py-0.5 bg-gray-700/50 border border-gray-600/50 rounded text-xs font-mono text-gray-400 shadow-inner">
-            Enter
-          </kbd>
-          <span>to run</span>
-        </div>
-      </div>
-
-      {/* Editor Container */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-[#1e1e1e] z-10">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#1e1e1e]">
             <div className="flex flex-col items-center gap-4">
-              <div className="w-12 h-12 border-4 border-violet-500/20 border-t-violet-500 rounded-full animate-spin" />
-              <p className="text-gray-400 text-sm">Loading editor...</p>
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-violet-500/20 border-t-violet-500" />
+              <p className="text-sm text-gray-400">Loading editor...</p>
             </div>
           </div>
         )}
@@ -168,7 +156,7 @@ export default function CodeEditor({
           height="100%"
           language={languageConfig.monacoLanguage}
           value={value}
-          onChange={(value) => onChange(value || '')}
+          onChange={(v) => onChange(v || '')}
           onMount={handleEditorDidMount}
           theme={settings.theme}
           options={{
@@ -179,47 +167,43 @@ export default function CodeEditor({
             wordWrap: settings.wordWrap ? 'on' : 'off',
             scrollBeyondLastLine: false,
             automaticLayout: true,
-            padding: { top: 20, bottom: 20 },
+            padding: { top: hideChrome ? 12 : 20, bottom: hideChrome ? 12 : 20 },
             smoothScrolling: true,
             cursorBlinking: 'smooth',
             fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
             fontLigatures: true,
             renderLineHighlight: 'all',
-            bracketPairColorization: {
-              enabled: true,
-            },
+            bracketPairColorization: { enabled: true },
             renderWhitespace: 'selection',
             rulers: [],
             lineHeight: 22,
           }}
           loading={
-            <div className="flex items-center justify-center h-full bg-[#1e1e1e]">
-              <div className="w-12 h-12 border-4 border-violet-500/20 border-t-violet-500 rounded-full animate-spin" />
+            <div className="flex h-full items-center justify-center bg-[#1e1e1e]">
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-violet-500/20 border-t-violet-500" />
             </div>
           }
         />
       </div>
 
-      {/* Collapsible Input Panel */}
-      {onToggleInputPanel && (
+      {showInputChrome && (
         <>
-          {/* Toggle Button */}
           <button
+            type="button"
             onClick={onToggleInputPanel}
-            className="flex items-center justify-between px-4 py-2 bg-gray-800/60 border-t border-gray-700/30 hover:bg-gray-700/60 transition-colors"
+            className="flex items-center justify-between border-t border-gray-700/30 bg-gray-800/60 px-4 py-2 transition-colors hover:bg-gray-700/60"
           >
             <div className="flex items-center gap-2 text-sm text-gray-400">
-              <Terminal className="w-4 h-4" />
+              <Terminal className="h-4 w-4" />
               <span>Input</span>
             </div>
             {showInputPanel ? (
-              <ChevronDown className="w-4 h-4 text-gray-400" />
+              <ChevronDown className="h-4 w-4 text-gray-400" />
             ) : (
-              <ChevronUp className="w-4 h-4 text-gray-400" />
+              <ChevronUp className="h-4 w-4 text-gray-400" />
             )}
           </button>
 
-          {/* Input Panel */}
           <AnimatePresence>
             {showInputPanel && (
               <motion.div
@@ -234,7 +218,7 @@ export default function CodeEditor({
                     value={input}
                     onChange={(e) => onInputChange?.(e.target.value)}
                     placeholder="Enter input for your program..."
-                    className="w-full h-24 px-3 py-2 bg-gray-900/50 border border-gray-700/50 rounded-lg text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 font-mono resize-none"
+                    className="h-24 w-full resize-none rounded-lg border border-gray-700/50 bg-gray-900/50 px-3 py-2 font-mono text-sm text-gray-300 placeholder-gray-600 focus:border-violet-500/50 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                   />
                 </div>
               </motion.div>
@@ -244,4 +228,6 @@ export default function CodeEditor({
       )}
     </div>
   );
-}
+});
+
+export default CodeEditor;

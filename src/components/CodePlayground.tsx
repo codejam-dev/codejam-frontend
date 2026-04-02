@@ -5,39 +5,33 @@ import Split from 'react-split';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play,
-  Settings,
-  Download,
-  Share2,
   ChevronDown,
-  Maximize2,
-  Minimize2,
   Moon,
   Sun,
   FileCode,
-  Users,
-  Radio,
-  History,
+  Search,
+  MoreHorizontal,
+  ChevronRight,
+  Terminal,
+  X,
 } from 'lucide-react';
-import CodeEditor from './CodeEditor';
+import CodeEditor, { type CodeEditorHandle } from './CodeEditor';
 import OutputPanel from './OutputPanel';
-import ExecutionMetrics from './ExecutionMetrics';
-import RunHistoryPanel from './RunHistoryPanel';
-import { 
-  ExecutionConsole, 
+import RunHistoryPanel, { runHistoryLanguage, RunHistoryTabContent } from './RunHistoryPanel';
+import {
+  ExecutionConsole,
   ConsoleMessage,
-  ConsoleTab,
-  MobileBottomSheet, 
-  FloatingRunButton, 
-  MobileHeader 
+  MobileBottomSheet,
+  FloatingRunButton,
+  MobileHeader,
 } from '@/features/playground/components';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import {
   SupportedLanguage,
-  CodeExecutionResponse,
-  EditorSettings,
   EditorStats,
   PlaygroundState,
   RunHistoryItem,
+  ConsoleWorkspaceTab,
 } from '@/types/playground.types';
 import {
   LANGUAGE_TEMPLATES,
@@ -45,8 +39,7 @@ import {
   SUPPORTED_LANGUAGES,
   getDefaultCode,
 } from '@/lib/language-templates';
-import { PlaygroundService } from '@/services/playground.service';
-import { getCommandKey } from '@/utils/platform';
+import { PlaygroundService, clampConsoleExpandedHeight } from '@/services/playground.service';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function CodePlayground() {
@@ -73,37 +66,45 @@ export default function CodePlayground() {
   const [isLanguageChanging, setIsLanguageChanging] = useState(false);
   const [isDarkTheme, setIsDarkTheme] = useState(true);
   const [showInputPanel, setShowInputPanel] = useState(false);
-  const [participantsCount, setParticipantsCount] = useState(1); // Mock for now
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [historyRuns, setHistoryRuns] = useState<RunHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [selectedHistoryRun, setSelectedHistoryRun] = useState<RunHistoryItem | null>(null);
+  const [desktopHistoryOpen, setDesktopHistoryOpen] = useState(false);
   const [isConsoleCollapsed, setIsConsoleCollapsed] = useState(false);
+  const [consoleExpandedHeight, setConsoleExpandedHeight] = useState(280);
+  const [consoleTab, setConsoleTab] = useState<ConsoleWorkspaceTab>('stdout');
   const [consoleMessages, setConsoleMessages] = useState<ConsoleMessage[]>([]);
-  const languageDropdownRef = useRef<HTMLDivElement>(null);
+  const [stdinExpanded, setStdinExpanded] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
-  // Close language dropdown when clicking outside
+  const languageDropdownRef = useRef<HTMLDivElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<CodeEditorHandle>(null);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (languageDropdownRef.current && !languageDropdownRef.current.contains(event.target as Node)) {
         setShowLanguageDropdown(false);
       }
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setShowMoreMenu(false);
+      }
     };
 
-    if (showLanguageDropdown) {
+    if (showLanguageDropdown || showMoreMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showLanguageDropdown]);
+  }, [showLanguageDropdown, showMoreMenu]);
 
-  // Load saved state on mount
   useEffect(() => {
     const savedLanguage = PlaygroundService.getSavedLanguage() || 'javascript';
     const savedCode = PlaygroundService.getSavedCode(savedLanguage);
     const savedSettings = PlaygroundService.getSavedSettings() || DEFAULT_EDITOR_SETTINGS;
+    const consoleUi = PlaygroundService.getConsoleWorkspaceUi();
 
     setState((prev) => ({
       ...prev,
@@ -111,9 +112,14 @@ export default function CodePlayground() {
       code: savedCode || getDefaultCode(savedLanguage),
       settings: savedSettings,
     }));
+
+    if (consoleUi) {
+      setIsConsoleCollapsed(consoleUi.collapsed);
+      setConsoleExpandedHeight(consoleUi.expandedHeightPx);
+      setConsoleTab(consoleUi.activeTab);
+    }
   }, []);
 
-  // Auto-save code
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (state.code) {
@@ -124,12 +130,10 @@ export default function CodePlayground() {
     return () => clearTimeout(timeoutId);
   }, [state.code, state.language]);
 
-  // Keyboard shortcuts
   const handleRunCode = useCallback(async () => {
     setState((prev) => ({ ...prev, isExecuting: true, error: null }));
 
     try {
-      // Pass the token from auth context
       const result = await PlaygroundService.executeCode(
         {
           language: state.language,
@@ -145,10 +149,11 @@ export default function CodePlayground() {
         isExecuting: false,
       }));
       PlaygroundService.getRunHistory(authState.token).then(setHistoryRuns);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to execute code';
       setState((prev) => ({
         ...prev,
-        error: error.message || 'Failed to execute code',
+        error: message,
         isExecuting: false,
       }));
     }
@@ -156,13 +161,11 @@ export default function CodePlayground() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+Enter or Cmd+Enter to run
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         handleRunCode();
       }
 
-      // Ctrl+S or Cmd+S to save
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         PlaygroundService.saveCode(state.language, state.code);
@@ -206,14 +209,27 @@ export default function CodePlayground() {
     setConsoleMessages([]);
   };
 
-  const toggleConsole = () => {
-    setIsConsoleCollapsed((prev) => !prev);
-  };
+  const toggleConsole = useCallback(() => {
+    setIsConsoleCollapsed((prev) => {
+      const next = !prev;
+      PlaygroundService.saveConsoleCollapsed(next);
+      return next;
+    });
+  }, []);
 
-  const openHistoryPanel = useCallback(async () => {
-    setShowHistoryPanel(true);
+  const handleConsoleTabChange = useCallback((tab: ConsoleWorkspaceTab) => {
+    setConsoleTab(tab);
+    PlaygroundService.saveConsoleActiveTab(tab);
+  }, []);
+
+  const handleConsoleExpandedHeightChange = useCallback((px: number) => {
+    const next = clampConsoleExpandedHeight(px);
+    setConsoleExpandedHeight(next);
+    PlaygroundService.saveConsoleExpandedHeight(next);
+  }, []);
+
+  const loadRunHistory = useCallback(async () => {
     setHistoryLoading(true);
-    setSelectedHistoryRun(null);
     try {
       const runs = await PlaygroundService.getRunHistory(authState.token);
       setHistoryRuns(runs);
@@ -221,6 +237,30 @@ export default function CodePlayground() {
       setHistoryLoading(false);
     }
   }, [authState.token]);
+
+  const handleRestoreFromHistory = useCallback((run: RunHistoryItem) => {
+    const lang = runHistoryLanguage(run.language);
+    setState((prev) => ({
+      ...prev,
+      language: lang,
+      code: run.code,
+      output: null,
+      error: null,
+    }));
+    PlaygroundService.saveLanguage(lang);
+    PlaygroundService.saveCode(lang, run.code);
+    setDesktopHistoryOpen(false);
+  }, []);
+
+  const openDesktopHistory = useCallback(() => {
+    setDesktopHistoryOpen(true);
+    void loadRunHistory();
+  }, [loadRunHistory]);
+
+  const openMobileHistory = useCallback(() => {
+    setShowHistoryPanel(true);
+    void loadRunHistory();
+  }, [loadRunHistory]);
 
   const toggleTheme = () => {
     setIsDarkTheme(!isDarkTheme);
@@ -235,7 +275,6 @@ export default function CodePlayground() {
 
   const currentLanguage = LANGUAGE_TEMPLATES[state.language];
 
-  // For Java, extract the public class name from code to match file naming requirement
   const getFileName = () => {
     if (state.language === 'java') {
       const match = state.code.match(/public\s+class\s+(\w+)/);
@@ -246,21 +285,81 @@ export default function CodePlayground() {
   };
   const fileName = getFileName();
 
+  const languageSelector = (
+    <div className="relative" ref={languageDropdownRef}>
+      <motion.button
+        type="button"
+        onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        className="group relative flex items-center gap-2 overflow-hidden rounded-lg border border-gray-600/50 bg-gray-800/60 px-3 py-2 transition-all hover:border-gray-500/60"
+      >
+        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gray-700/50">
+          {typeof currentLanguage.icon === 'function' ? (
+            <currentLanguage.icon className="h-4 w-4" style={{ color: currentLanguage.iconColor }} />
+          ) : (
+            <span className="text-base">{currentLanguage.icon}</span>
+          )}
+        </div>
+        <span className="text-sm font-medium">{currentLanguage.name}</span>
+        <ChevronDown
+          className={`h-4 w-4 text-gray-400 transition-transform ${showLanguageDropdown ? 'rotate-180' : ''}`}
+        />
+      </motion.button>
+
+      <AnimatePresence>
+        {showLanguageDropdown && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            className="absolute left-0 top-full z-[100000] mt-1.5 w-60 overflow-hidden rounded-xl border border-gray-700/60 bg-gray-900/98 shadow-2xl backdrop-blur-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="py-1.5">
+              {SUPPORTED_LANGUAGES.map((lang) => {
+                const langConfig = LANGUAGE_TEMPLATES[lang];
+                const isActive = state.language === lang;
+                return (
+                  <button
+                    key={lang}
+                    type="button"
+                    onClick={() => handleLanguageChange(lang)}
+                    className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors ${
+                      isActive
+                        ? 'bg-violet-500/15 text-violet-300'
+                        : 'text-gray-300 hover:bg-gray-800/80 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-800/60">
+                      {typeof langConfig.icon === 'function' ? (
+                        <langConfig.icon className="h-5 w-5" style={{ color: langConfig.iconColor }} />
+                      ) : (
+                        <span className="text-lg">{langConfig.icon}</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{langConfig.name}</span>
+                      <span className="text-xs text-gray-500">{langConfig.extension}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+
   return (
     <motion.div
-      className="flex flex-col h-full bg-[#0a0a0f]/95 text-white relative overflow-hidden"
-      initial={{ opacity: 0, scale: 0.98 }}
+      className="relative flex h-full flex-col overflow-hidden bg-[#0a0a0f]/95 text-white"
+      initial={{ opacity: 0, scale: 0.995 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
+      transition={{ duration: 0.35, ease: 'easeOut' }}
     >
-      {/* Animated Background */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 -left-4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-0 -right-4 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
-      </div>
-
-      {/* Mobile Header */}
       {isMobile && (
         <MobileHeader
           language={state.language}
@@ -268,263 +367,29 @@ export default function CodePlayground() {
           fileName={fileName}
           isDarkTheme={isDarkTheme}
           onToggleTheme={toggleTheme}
-          onOpenHistory={openHistoryPanel}
+          onOpenHistory={openMobileHistory}
         />
       )}
 
-      {/* Desktop Header Toolbar */}
-      <motion.div
-        className={`relative flex items-center justify-between px-6 py-3.5 bg-gradient-to-b from-gray-900/95 via-gray-800/95 to-gray-900/95 border-b border-gray-700/50 backdrop-blur-xl z-40 shadow-2xl shadow-black/20 ${isMobile ? 'hidden' : ''}`}
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-      >
-        {/* Subtle gradient glow */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
-        <div className="absolute bottom-0 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-pink-500/30 to-transparent" />
-        {/* Left Section: Language & File Info */}
-        <div className="flex items-center gap-4">
-          {/* Language Selector - Redesigned */}
-          <div className="relative" ref={languageDropdownRef}>
-            <motion.button
-              onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="relative flex items-center gap-2.5 px-4 py-2.5 bg-gray-800/60 border border-gray-600/50 rounded-xl transition-all duration-200 hover:border-transparent overflow-hidden group"
-            >
-              {/* Gradient border on hover */}
-              <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-violet-500 via-pink-500 to-violet-500 p-[1px]">
-                <div className="h-full w-full bg-gray-800/95 rounded-xl" />
-              </div>
-
-              {/* Content - relative to show above gradient */}
-              <div className="relative flex items-center gap-2.5">
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-700/50">
-                  {typeof currentLanguage.icon === 'function' ? (
-                    <currentLanguage.icon className="w-5 h-5" style={{ color: currentLanguage.iconColor }} />
-                  ) : (
-                    <span className="text-lg">{currentLanguage.icon}</span>
-                  )}
-                </div>
-                <span className="font-semibold text-sm">{currentLanguage.name}</span>
-                <ChevronDown className="w-4 h-4 text-gray-400 transition-transform duration-200" style={{ transform: showLanguageDropdown ? 'rotate(180deg)' : 'rotate(0deg)' }} />
-              </div>
-            </motion.button>
-
-            <AnimatePresence>
-              {showLanguageDropdown && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute top-full left-0 mt-2 w-64 bg-gray-800/98 backdrop-blur-xl border border-gray-700/60 rounded-2xl shadow-2xl overflow-hidden z-[100000]"
-                  style={{ boxShadow: '0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(139, 92, 246, 0.15)' }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="py-2">
-                    {SUPPORTED_LANGUAGES.map((lang) => {
-                      const langConfig = LANGUAGE_TEMPLATES[lang];
-                      const isActive = state.language === lang;
-                      return (
-                        <motion.button
-                          key={lang}
-                          onClick={() => handleLanguageChange(lang)}
-                          whileHover={{ x: 4, backgroundColor: 'rgba(139, 92, 246, 0.1)' }}
-                          className={`w-full flex items-center justify-between gap-3 px-4 py-3 transition-all ${isActive
-                              ? 'bg-gradient-to-r from-violet-500/20 to-pink-500/20 text-violet-400 border-l-3 border-violet-500'
-                              : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
-                            }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center justify-center w-10 h-10 rounded-lg flex-shrink-0 bg-gray-700/30">
-                              {typeof langConfig.icon === 'function' ? (
-                                <langConfig.icon className="w-6 h-6" style={{ color: langConfig.iconColor }} />
-                              ) : (
-                                <span className="text-2xl">{langConfig.icon}</span>
-                              )}
-                            </div>
-                            <div className="flex flex-col items-start">
-                              <span className="font-semibold text-sm">{langConfig.name}</span>
-                              <span className="text-xs text-gray-500">{langConfig.extension}</span>
-                            </div>
-                          </div>
-                          {isActive && (
-                            <motion.div
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              className="w-2 h-2 rounded-full bg-violet-500 shadow-lg shadow-violet-500/50"
-                            />
-                          )}
-                        </motion.button>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* File Name Display */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-gray-800/40 rounded-lg border border-gray-700/30">
-            <FileCode className="w-4 h-4 text-violet-400" />
-            <span className="text-sm font-medium text-gray-300">{fileName}</span>
-          </div>
-
-          {/* Collaboration Indicator */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-gray-800/40 rounded-lg border border-gray-700/30">
-            <div className="relative">
-              <Radio className="w-3.5 h-3.5 text-green-400 animate-pulse" />
-              <div className="absolute inset-0 bg-green-400/20 rounded-full blur animate-ping" />
-            </div>
-            <span className="text-xs text-gray-400">Live Session</span>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-violet-500/20 rounded-md border border-violet-500/30">
-              <Users className="w-3 h-3 text-violet-400" />
-              <span className="text-xs font-semibold text-violet-400">{participantsCount}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Center Section: Run Button & History */}
-        <div className="flex items-center gap-3">
-          <motion.button
-            onClick={openHistoryPanel}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gray-800/60 border border-gray-600/50 rounded-lg hover:border-violet-500/50 hover:bg-gray-700/50 transition-all"
-            title="Run history"
-          >
-            <History className="w-4 h-4 text-violet-400" />
-            <span className="text-sm font-medium text-gray-300">History</span>
-          </motion.button>
-          {/* Premium Run Button */}
-          <motion.button
-            onClick={handleRunCode}
-            disabled={state.isExecuting}
-            whileHover={{ scale: state.isExecuting ? 1 : 1.05 }}
-            whileTap={{ scale: state.isExecuting ? 1 : 0.95 }}
-            className="relative flex items-center gap-2.5 px-8 py-3 bg-gradient-to-r from-violet-600 to-pink-600 hover:shadow-lg hover:shadow-violet-500/50 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-semibold text-sm shadow-lg transition-all duration-300 disabled:hover:scale-100 overflow-hidden group"
-          >
-            {/* Shimmer effect */}
-            <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-
-            {/* Running animation overlay */}
-            {state.isExecuting && (
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-violet-400/20 via-blue-400/20 to-violet-400/20"
-                animate={{ x: ['-100%', '100%'] }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-              />
-            )}
-
-            <Play className={`w-4 h-4 ${state.isExecuting ? 'animate-spin' : ''}`} fill="currentColor" />
-            <span>{state.isExecuting ? 'Running...' : 'Run Code'}</span>
-          </motion.button>
-        </div>
-
-        {/* Right Section: Actions */}
-        <div className="flex items-center gap-2">
-          {/* Theme Toggle */}
-          <motion.button
-            onClick={toggleTheme}
-            whileHover={{ scale: 1.1, rotate: 180 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ duration: 0.3 }}
-            className="p-2.5 hover:bg-gray-700/50 rounded-xl transition-colors group border border-transparent hover:border-gray-600/50"
-            title={isDarkTheme ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
-          >
-            {isDarkTheme ? (
-              <Sun className="w-4.5 h-4.5 text-yellow-400 group-hover:text-yellow-300" />
-            ) : (
-              <Moon className="w-4.5 h-4.5 text-violet-400 group-hover:text-violet-300" />
-            )}
-          </motion.button>
-
-          {/* TODO: Implement settings panel in future sprint */}
-          {/* <motion.button
-            whileHover={{ scale: 1.1, rotate: 180 }}
-            transition={{ duration: 0.3 }}
-            className="p-2.5 hover:bg-gray-700/50 rounded-xl transition-colors group border border-transparent hover:border-gray-600/50"
-            title="Settings"
-          >
-            <Settings className="w-4.5 h-4.5 text-gray-400 group-hover:text-violet-400" />
-          </motion.button> */}
-
-          {/* TODO: Implement code download functionality in future sprint */}
-          {/* <motion.button
-            whileHover={{ scale: 1.1, y: -2 }}
-            transition={{ duration: 0.2 }}
-            className="p-2.5 hover:bg-gray-700/50 rounded-xl transition-colors group border border-transparent hover:border-gray-600/50"
-            title="Download Code"
-          >
-            <Download className="w-4.5 h-4.5 text-gray-400 group-hover:text-cyan-400" />
-          </motion.button> */}
-
-          {/* TODO: Implement share functionality in future sprint */}
-          {/* <motion.button
-            whileHover={{ scale: 1.1 }}
-            transition={{ duration: 0.2 }}
-            className="p-2.5 hover:bg-gray-700/50 rounded-xl transition-colors group border border-transparent hover:border-gray-600/50"
-            title="Share"
-          >
-            <Share2 className="w-4.5 h-4.5 text-gray-400 group-hover:text-pink-400" />
-          </motion.button> */}
-
-          {/* TODO: Implement fullscreen mode in future sprint */}
-          {/* <motion.button
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            className="p-2.5 hover:bg-gray-700/50 rounded-xl transition-colors group border border-transparent hover:border-gray-600/50"
-            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-          >
-            {isFullscreen ? (
-              <Minimize2 className="w-4.5 h-4.5 text-gray-400 group-hover:text-violet-400" />
-            ) : (
-              <Maximize2 className="w-4.5 h-4.5 text-gray-400 group-hover:text-violet-400" />
-            )}
-          </motion.button> */}
-        </div>
-      </motion.div>
-
-      {/* Mobile Layout: Full-width Editor */}
       {isMobile && (
         <motion.div
-          className="flex-1 overflow-hidden pb-14"
-          initial={{ opacity: 0, y: 20 }}
+          className="min-h-0 flex-1 overflow-hidden pb-14"
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
+          transition={{ duration: 0.35 }}
         >
-          <div className="h-full bg-[#1e1e1e] relative">
-            {/* Language change transition overlay */}
+          <div className="relative h-full bg-[#1e1e1e]">
             <AnimatePresence>
               {isLanguageChanging && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="absolute inset-0 bg-gradient-to-br from-violet-600/30 via-pink-600/30 to-cyan-600/30 backdrop-blur-sm z-50 flex items-center justify-center"
+                  className="absolute inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-violet-600/25 via-pink-600/25 to-cyan-600/25 backdrop-blur-sm"
                 >
-                  <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="flex items-center gap-3 px-5 py-2.5 bg-gray-900/80 border border-violet-500/50 rounded-xl"
-                  >
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                    >
-                      {(() => {
-                        const langIcon = LANGUAGE_TEMPLATES[state.language].icon;
-                        if (typeof langIcon === 'function') {
-                          const IconComponent = langIcon;
-                          return <IconComponent className="w-5 h-5" style={{ color: LANGUAGE_TEMPLATES[state.language].iconColor }} />;
-                        }
-                        return <span className="text-xl">{langIcon}</span>;
-                      })()}
-                    </motion.div>
-                    <span className="text-white text-sm font-medium">Switching...</span>
-                  </motion.div>
+                  <div className="flex items-center gap-2 rounded-lg border border-violet-500/40 bg-gray-900/85 px-4 py-2 text-sm text-white">
+                    Switching…
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -546,103 +411,264 @@ export default function CodePlayground() {
         </motion.div>
       )}
 
-      {/* Desktop Layout: Split View */}
       {!isMobile && (
-        <motion.div
-          className="flex-1 overflow-hidden"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          <Split
-            className="flex h-full"
-            sizes={[60, 40]}
-            minSize={[300, 300]}
-            gutterSize={8}
-            snapOffset={30}
-            dragInterval={1}
-            direction="horizontal"
-            cursor="col-resize"
-            gutter={(index, direction) => {
-              const gutter = document.createElement('div');
-              gutter.className = 'gutter gutter-horizontal bg-gray-800 hover:bg-violet-500/30 transition-colors cursor-col-resize rounded';
-              return gutter;
-            }}
+        <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
+          <motion.div
+            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, delay: 0.08 }}
           >
-            {/* Editor Panel */}
-            <div className="h-full bg-[#1e1e1e] relative">
-              {/* Glow effect border */}
-              <div className="absolute inset-0 bg-gradient-to-r from-violet-500/20 via-pink-500/20 to-cyan-500/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-lg" style={{ padding: '1px' }}>
-                <div className="w-full h-full bg-[#1e1e1e] rounded-lg" />
+            <motion.div
+              className="relative z-40 flex shrink-0 items-center justify-between gap-3 border-b border-gray-800/60 bg-zinc-950/90 px-4 py-2 backdrop-blur-md"
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.05 }}
+            >
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                {languageSelector}
+                <div className="flex min-w-0 items-center gap-2 rounded-md border border-gray-700/40 bg-gray-900/50 px-2.5 py-1.5">
+                  <FileCode className="h-3.5 w-3.5 shrink-0 text-violet-400" />
+                  <span className="truncate text-xs font-medium text-gray-300">{fileName}</span>
+                </div>
               </div>
 
-              {/* Language change transition overlay */}
-              <AnimatePresence>
-                {isLanguageChanging && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="absolute inset-0 bg-gradient-to-br from-violet-600/30 via-pink-600/30 to-cyan-600/30 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg"
+              <div className="flex shrink-0 items-center gap-2">
+                <motion.button
+                  type="button"
+                  onClick={openDesktopHistory}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-zinc-400 transition-colors hover:border-zinc-700/50 hover:bg-zinc-800/50 hover:text-zinc-200"
+                  title="Run history"
+                >
+                  ⧖ History
+                </motion.button>
+                <motion.button
+                  type="button"
+                  onClick={handleRunCode}
+                  disabled={state.isExecuting}
+                  whileHover={{ scale: state.isExecuting ? 1 : 1.03 }}
+                  whileTap={{ scale: state.isExecuting ? 1 : 0.97 }}
+                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 px-5 py-2 text-sm font-semibold shadow-lg shadow-violet-900/20 disabled:cursor-not-allowed disabled:from-gray-600 disabled:to-gray-700 disabled:opacity-80"
+                >
+                  <Play className={`h-4 w-4 ${state.isExecuting ? 'animate-spin' : ''}`} fill="currentColor" />
+                  <span>{state.isExecuting ? 'Running…' : 'Run'}</span>
+                </motion.button>
+
+                <motion.button
+                  type="button"
+                  onClick={() => editorRef.current?.triggerFind()}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="rounded-lg border border-transparent p-2 text-gray-400 transition-colors hover:border-gray-700/50 hover:bg-gray-800/50 hover:text-white"
+                  title="Find in editor"
+                >
+                  <Search className="h-4 w-4" />
+                </motion.button>
+
+                <motion.button
+                  type="button"
+                  onClick={toggleTheme}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="rounded-lg border border-transparent p-2 text-gray-400 transition-colors hover:border-gray-700/50 hover:bg-gray-800/50 hover:text-white"
+                  title={isDarkTheme ? 'Light theme' : 'Dark theme'}
+                >
+                  {isDarkTheme ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-violet-400" />}
+                </motion.button>
+
+                <div className="relative" ref={moreMenuRef}>
+                  <motion.button
+                    type="button"
+                    onClick={() => setShowMoreMenu(!showMoreMenu)}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="rounded-lg border border-transparent p-2 text-gray-400 transition-colors hover:border-gray-700/50 hover:bg-gray-800/50 hover:text-white"
+                    title="More"
                   >
-                    <motion.div
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="flex items-center gap-3 px-6 py-3 bg-gray-900/80 border border-violet-500/50 rounded-xl"
-                    >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </motion.button>
+                  <AnimatePresence>
+                    {showMoreMenu && (
                       <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-lg border border-gray-700/60 bg-gray-900/98 py-1 shadow-xl"
                       >
-                        {(() => {
-                          const langIcon = LANGUAGE_TEMPLATES[state.language].icon;
-                          if (typeof langIcon === 'function') {
-                            const IconComponent = langIcon;
-                            return <IconComponent className="w-6 h-6" style={{ color: LANGUAGE_TEMPLATES[state.language].iconColor }} />;
-                          }
-                          return <span className="text-2xl">{langIcon}</span>;
-                        })()}
+                        <p className="px-3 py-2 text-[10px] leading-snug text-gray-500">
+                          More actions (share, download, settings) will land here.
+                        </p>
                       </motion.div>
-                      <span className="text-white font-medium">Switching language...</span>
-                    </motion.div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <CodeEditor
-                language={state.language}
-                value={state.code}
-                onChange={handleCodeChange}
-                settings={state.settings}
-                onStatsChange={setEditorStats}
-                fileName={fileName}
-                showInputPanel={showInputPanel}
-                input={state.input}
-                onInputChange={(input) => setState((prev) => ({ ...prev, input }))}
-                onToggleInputPanel={() => setShowInputPanel(!showInputPanel)}
-                onRunCode={handleRunCode}
-              />
-            </div>
-
-            {/* Output Panel */}
-            <div className="h-full relative">
-              {/* Glow effect border */}
-              <div className="absolute inset-0 bg-gradient-to-l from-violet-500/20 via-pink-500/20 to-cyan-500/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-lg" style={{ padding: '1px' }}>
-                <div className="w-full h-full bg-gray-900 rounded-lg" />
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
-              <OutputPanel
-                output={state.output}
-                isExecuting={state.isExecuting}
-                onClear={handleClearOutput}
-              />
+            </motion.div>
+
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1">
+                <Split
+                  className="flex h-full"
+                  sizes={[58, 42]}
+                  minSize={[280, 280]}
+                  gutterSize={6}
+                  snapOffset={24}
+                  dragInterval={1}
+                  direction="horizontal"
+                  cursor="col-resize"
+                  gutter={() => {
+                    const gutter = document.createElement('div');
+                    gutter.className =
+                      'gutter gutter-horizontal cursor-col-resize bg-zinc-800/80 hover:bg-violet-500/25 transition-colors';
+                    return gutter;
+                  }}
+                >
+                  <div className="relative h-full min-h-0 bg-[#1e1e1e]">
+                    <AnimatePresence>
+                      {isLanguageChanging && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+                        >
+                          <span className="text-sm text-gray-200">Switching language…</span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <CodeEditor
+                      ref={editorRef}
+                      hideChrome
+                      language={state.language}
+                      value={state.code}
+                      onChange={handleCodeChange}
+                      settings={state.settings}
+                      onStatsChange={setEditorStats}
+                      fileName={fileName}
+                      onRunCode={handleRunCode}
+                    />
+                  </div>
+
+                  <OutputPanel
+                    output={state.output}
+                    isExecuting={state.isExecuting}
+                    onClear={handleClearOutput}
+                    activeConsoleTab={consoleTab}
+                    onConsoleTabChange={handleConsoleTabChange}
+                    consoleMessages={consoleMessages}
+                    onClearConsole={handleClearConsole}
+                  />
+                </Split>
+              </div>
+
+              <div className="shrink-0 border-t border-gray-800/60 bg-[#0c0c10]">
+                <button
+                  type="button"
+                  onClick={() => setStdinExpanded(!stdinExpanded)}
+                  className="flex w-full items-center justify-between px-4 py-2 text-left text-xs text-zinc-400 transition-colors hover:bg-zinc-900/80 hover:text-zinc-200"
+                >
+                  <span className="flex items-center gap-2">
+                    <Terminal className="h-3.5 w-3.5" />
+                    Program stdin {state.input.trim() ? `(${state.input.length} chars)` : ''}
+                  </span>
+                  <ChevronRight
+                    className={`h-3.5 w-3.5 transition-transform ${stdinExpanded ? 'rotate-90' : ''}`}
+                  />
+                </button>
+                <AnimatePresence>
+                  {stdinExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden border-t border-zinc-800/60"
+                    >
+                      <div className="px-4 py-2">
+                        <textarea
+                          value={state.input}
+                          onChange={(e) => setState((prev) => ({ ...prev, input: e.target.value }))}
+                          placeholder="stdin for your program…"
+                          rows={4}
+                          className="w-full resize-y rounded-md border border-zinc-700/50 bg-zinc-950/80 px-3 py-2 font-mono text-xs text-zinc-200 placeholder-zinc-600 focus:border-violet-500/40 focus:outline-none focus:ring-1 focus:ring-violet-500/30"
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
-          </Split>
-        </motion.div>
+
+            <div className="flex shrink-0 items-center justify-between gap-2 border-t border-gray-800/60 bg-zinc-950/95 px-4 py-1.5 text-[11px] text-zinc-500">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span>
+                  Ln {editorStats.cursorPosition.line}, Col {editorStats.cursorPosition.column}
+                </span>
+                <span className="text-zinc-600">·</span>
+                <span>{editorStats.characters} chars</span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                {state.isExecuting && (
+                  <span className="mr-2 text-violet-400/90">Executing…</span>
+                )}
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
+                <span className="text-zinc-400">Auto-saved</span>
+              </div>
+
+              <span className="text-zinc-500">Solo</span>
+            </div>
+          </motion.div>
+
+          <motion.aside
+            initial={false}
+            animate={{ width: desktopHistoryOpen ? 380 : 0 }}
+            transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+            className="flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-l border-zinc-800 bg-zinc-950"
+            aria-hidden={!desktopHistoryOpen}
+          >
+            <div className="flex h-full min-h-0 w-[380px] flex-col">
+              <div className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-3 py-2">
+                <h2 className="text-xs font-semibold text-zinc-300">Run history</h2>
+                <button
+                  type="button"
+                  onClick={() => setDesktopHistoryOpen(false)}
+                  className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
+                  aria-label="Close history"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <RunHistoryTabContent
+                  runs={historyRuns}
+                  isLoading={historyLoading}
+                  onRestoreCode={handleRestoreFromHistory}
+                />
+              </div>
+            </div>
+          </motion.aside>
+        </div>
       )}
 
-      {/* Mobile: Bottom Sheet Output + Floating Run Button */}
       {isMobile && (
         <>
+          <ExecutionConsole
+            output={state.output}
+            isExecuting={state.isExecuting}
+            onClear={handleClearOutput}
+            isCollapsed={isConsoleCollapsed}
+            onToggleCollapse={toggleConsole}
+            activeTab={consoleTab}
+            onActiveTabChange={handleConsoleTabChange}
+            expandedHeightPx={consoleExpandedHeight}
+            onExpandedHeightChange={handleConsoleExpandedHeightChange}
+            consoleMessages={consoleMessages}
+            onClearConsole={handleClearConsole}
+          />
           <MobileBottomSheet
             output={state.output}
             isExecuting={state.isExecuting}
@@ -652,105 +678,41 @@ export default function CodePlayground() {
             consoleMessages={consoleMessages}
             onClearConsole={handleClearConsole}
           />
-          <FloatingRunButton
-            onClick={handleRunCode}
-            isExecuting={state.isExecuting}
-          />
+          <FloatingRunButton onClick={handleRunCode} isExecuting={state.isExecuting} />
         </>
       )}
 
-      {/* Desktop: Bottom Execution Console Panel */}
-      {!isMobile && (
-        <ExecutionConsole
-          output={state.output}
-          isExecuting={state.isExecuting}
-          onClear={handleClearOutput}
-          isCollapsed={isConsoleCollapsed}
-          onToggleCollapse={toggleConsole}
-          consoleMessages={consoleMessages}
-          onClearConsole={handleClearConsole}
-        />
+      {isMobile && (
+        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-gray-800/60 bg-zinc-950/95 px-4 py-1.5 text-[11px] text-zinc-500">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>
+              Ln {editorStats.cursorPosition.line}, Col {editorStats.cursorPosition.column}
+            </span>
+            <span className="text-zinc-600">·</span>
+            <span>{editorStats.characters} chars</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {state.isExecuting && (
+              <span className="mr-2 text-violet-400/90">Executing…</span>
+            )}
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
+            <span className="text-zinc-400">Auto-saved</span>
+          </div>
+
+          <span className="text-zinc-500">Solo</span>
+        </div>
       )}
 
-      {/* Desktop: Premium Status Bar */}
-      <div className={`flex items-center justify-between px-6 py-2.5 bg-gradient-to-b from-gray-900/95 via-gray-800/95 to-gray-900/95 border-t border-gray-700/50 text-xs backdrop-blur-xl relative overflow-hidden shadow-lg shadow-black/10 ${isMobile ? 'hidden' : ''}`}>
-        {/* Executing indicator animation */}
-        {state.isExecuting && (
-          <motion.div
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: [0, 1, 0] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-            className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-violet-500 to-transparent origin-left"
-          />
-        )}
-
-        <div className="flex items-center gap-6 text-gray-400">
-          <span className="flex items-center gap-2">
-            <motion.div
-              className="flex items-center justify-center w-5 h-5 rounded"
-              animate={state.isExecuting ? { scale: [1, 1.2, 1] } : {}}
-              transition={{ duration: 1, repeat: state.isExecuting ? Infinity : 0 }}
-            >
-              {typeof currentLanguage.icon === 'function' ? (
-                <currentLanguage.icon className="w-4 h-4" style={{ color: currentLanguage.iconColor }} />
-              ) : (
-                <span className="text-base">{currentLanguage.icon}</span>
-              )}
-            </motion.div>
-            <span className="text-violet-400 font-semibold">{currentLanguage.name}</span>
-          </span>
-          <span className="flex items-center gap-1.5 px-2 py-1 bg-gray-800/40 rounded border border-gray-700/30">
-            <span className="text-gray-500">Ln</span>
-            <span className="font-mono font-semibold text-gray-300">{editorStats.cursorPosition.line}</span>
-            <span className="text-gray-500">,</span>
-            <span className="text-gray-500">Col</span>
-            <span className="font-mono font-semibold text-gray-300">{editorStats.cursorPosition.column}</span>
-          </span>
-          <span className="px-2 py-1 bg-gray-800/40 rounded border border-gray-700/30">
-            {editorStats.lines} lines
-          </span>
-          <span className="px-2 py-1 bg-gray-800/40 rounded border border-gray-700/30">
-            {editorStats.characters} chars
-          </span>
-        </div>
-
-        <div className="flex items-center gap-4 text-gray-400">
-          {state.isExecuting && (
-            <motion.span
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-1.5 text-violet-400 px-2 py-1 bg-violet-500/10 rounded border border-violet-500/20"
-            >
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full"
-              />
-              Executing...
-            </motion.span>
-          )}
-          <motion.span
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className="flex items-center gap-1.5 px-2 py-1 bg-gray-800/40 rounded border border-gray-700/30"
-          >
-            <span className="w-1.5 h-1.5 bg-green-500 rounded-full shadow-lg shadow-green-500/50" />
-            Auto-save
-          </motion.span>
-          {state.output && (
-            <ExecutionMetrics output={state.output} />
-          )}
-        </div>
-      </div>
-
-      <RunHistoryPanel
-        isOpen={showHistoryPanel}
-        onClose={() => setShowHistoryPanel(false)}
-        runs={historyRuns}
-        isLoading={historyLoading}
-        selectedRun={selectedHistoryRun}
-        onSelectRun={setSelectedHistoryRun}
-      />
+      {isMobile && (
+        <RunHistoryPanel
+          isOpen={showHistoryPanel}
+          onClose={() => setShowHistoryPanel(false)}
+          runs={historyRuns}
+          isLoading={historyLoading}
+          onRestoreCode={handleRestoreFromHistory}
+        />
+      )}
     </motion.div>
   );
 }

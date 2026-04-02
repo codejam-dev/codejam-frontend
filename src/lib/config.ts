@@ -22,6 +22,9 @@ export const STORAGE_KEYS = {
   PLAYGROUND_LANGUAGE: 'codejam_playground_language',
   PLAYGROUND_SETTINGS: 'codejam_playground_settings',
   PLAYGROUND_CONSOLE_LAYOUT: 'codejam_playground_console_layout',
+  PLAYGROUND_CONSOLE_COLLAPSED: 'codejam_playground_console_collapsed',
+  PLAYGROUND_CONSOLE_HEIGHT: 'codejam_playground_console_height',
+  PLAYGROUND_CONSOLE_TAB: 'codejam_playground_console_tab',
 };
 
 // API Endpoints

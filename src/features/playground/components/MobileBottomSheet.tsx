@@ -15,15 +15,9 @@ import {
   Loader2,
 } from 'lucide-react';
 import { CodeExecutionResponse } from '@/types/playground.types';
+import type { ConsoleMessage } from './ExecutionConsole';
 
 type TabType = 'stdout' | 'stderr' | 'console';
-
-export interface ConsoleMessage {
-  id: string;
-  type: 'log' | 'warn' | 'error' | 'info';
-  content: string;
-  timestamp: Date;
-}
 
 interface MobileBottomSheetProps {
   output: CodeExecutionResponse | null;
@@ -106,7 +100,7 @@ export default function MobileBottomSheet({
   const handleCopy = async () => {
     const content = activeTab === 'stdout' ? output?.stdout : 
                     activeTab === 'stderr' ? output?.stderr :
-                    consoleMessages.map(m => m.content).join('\n');
+                    consoleMessages.map((m) => m.message).join('\n');
     
     if (content) {
       await navigator.clipboard.writeText(content);
@@ -319,7 +313,7 @@ export default function MobileBottomSheet({
                     <span className="opacity-50 text-xs whitespace-nowrap">
                       {msg.timestamp.toLocaleTimeString()}
                     </span>
-                    <span className="break-words">{msg.content}</span>
+                    <span className="break-words">{msg.message}</span>
                   </div>
                 ))
               ) : (

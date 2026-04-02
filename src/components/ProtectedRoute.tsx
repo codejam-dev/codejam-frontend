@@ -22,7 +22,7 @@ export function ProtectedRoute({ children, redirectTo = '/auth/login' }: Protect
         const pendingEmail = AuthService.getPendingEmail();
         
         if (tempToken && pendingEmail) {
-          // User has temp token, redirect to OTP verification
+          // User has temp token, redirect to OTP verificatABion
           router.push('/auth/verify-otp');
         } else {
           // No auth, redirect to login
