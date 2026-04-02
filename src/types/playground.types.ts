@@ -29,6 +29,9 @@ export interface CodeExecutionRequest {
   input?: string;
 }
 
+/** Bottom execution console (desktop) — tab + layout prefs */
+export type ConsoleWorkspaceTab = 'stdout' | 'stderr' | 'console';
+
 export interface CodeExecutionResponse {
   stdout: string;
   stderr: string;
@@ -81,6 +84,8 @@ export interface RunHistoryItem {
   stderr: string | null;
   exitCode: number | null;
   executionTimeMs: number | null;
+  /** Peak memory (MB) when returned by API */
+  memoryMb?: number | null;
   errorMessage: string | null;
   createdAt: string; // ISO date
 }

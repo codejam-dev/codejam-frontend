@@ -11,7 +11,36 @@ import {
   SupportedLanguage,
   EditorSettings,
   RunHistoryItem,
+  ConsoleWorkspaceTab,
 } from '@/types/playground.types';
+
+const DEFAULT_CONSOLE_EXPANDED_HEIGHT_PX = 280;
+const MIN_CONSOLE_EXPANDED_HEIGHT_PX = 120;
+const MAX_CONSOLE_EXPANDED_HEIGHT_PX = 600;
+
+function clampConsoleHeight(px: number): number {
+  if (!Number.isFinite(px)) return DEFAULT_CONSOLE_EXPANDED_HEIGHT_PX;
+  return Math.min(
+    MAX_CONSOLE_EXPANDED_HEIGHT_PX,
+    Math.max(MIN_CONSOLE_EXPANDED_HEIGHT_PX, Math.round(px))
+  );
+}
+
+/** Public clamp for UI resize (same bounds as persisted height). */
+export function clampConsoleExpandedHeight(px: number): number {
+  return clampConsoleHeight(px);
+}
+
+function parseConsoleTab(raw: string | null): ConsoleWorkspaceTab {
+  if (raw === 'stdout' || raw === 'stderr' || raw === 'console') return raw;
+  return 'stdout';
+}
+
+export interface ConsoleWorkspaceUi {
+  collapsed: boolean;
+  expandedHeightPx: number;
+  activeTab: ConsoleWorkspaceTab;
+}
 
 export class PlaygroundService {
   /**
@@ -356,6 +385,61 @@ export class PlaygroundService {
   }
 
   /**
+   * Bottom execution console workspace (desktop) — collapsed state, expanded height, active tab.
+   */
+  static getConsoleWorkspaceUi(): ConsoleWorkspaceUi | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      const collapsedRaw = localStorage.getItem(STORAGE_KEYS.PLAYGROUND_CONSOLE_COLLAPSED);
+      const heightRaw = localStorage.getItem(STORAGE_KEYS.PLAYGROUND_CONSOLE_HEIGHT);
+      const tabRaw = localStorage.getItem(STORAGE_KEYS.PLAYGROUND_CONSOLE_TAB);
+      if (collapsedRaw === null && heightRaw === null && tabRaw === null) {
+        return null;
+      }
+      const collapsed = collapsedRaw === 'true';
+      const expandedHeightPx =
+        heightRaw !== null
+          ? clampConsoleHeight(parseFloat(heightRaw))
+          : DEFAULT_CONSOLE_EXPANDED_HEIGHT_PX;
+      const activeTab = parseConsoleTab(tabRaw);
+      return { collapsed, expandedHeightPx, activeTab };
+    } catch (error) {
+      console.error('Failed to read console workspace UI:', error);
+      return null;
+    }
+  }
+
+  static saveConsoleCollapsed(collapsed: boolean): void {
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.PLAYGROUND_CONSOLE_COLLAPSED,
+        collapsed ? 'true' : 'false'
+      );
+    } catch (error) {
+      console.error('Failed to save console collapsed state:', error);
+    }
+  }
+
+  static saveConsoleExpandedHeight(px: number): void {
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.PLAYGROUND_CONSOLE_HEIGHT,
+        String(clampConsoleHeight(px))
+      );
+    } catch (error) {
+      console.error('Failed to save console height:', error);
+    }
+  }
+
+  static saveConsoleActiveTab(tab: ConsoleWorkspaceTab): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.PLAYGROUND_CONSOLE_TAB, tab);
+    } catch (error) {
+      console.error('Failed to save console tab:', error);
+    }
+  }
+
+  /**
    * Clear all saved playground data
    */
   static clearAllData(): void {
@@ -363,8 +447,67 @@ export class PlaygroundService {
       localStorage.removeItem(STORAGE_KEYS.PLAYGROUND_CODE);
       localStorage.removeItem(STORAGE_KEYS.PLAYGROUND_LANGUAGE);
       localStorage.removeItem(STORAGE_KEYS.PLAYGROUND_SETTINGS);
+      localStorage.removeItem(STORAGE_KEYS.PLAYGROUND_CONSOLE_LAYOUT);
+      localStorage.removeItem(STORAGE_KEYS.PLAYGROUND_CONSOLE_COLLAPSED);
+      localStorage.removeItem(STORAGE_KEYS.PLAYGROUND_CONSOLE_HEIGHT);
+      localStorage.removeItem(STORAGE_KEYS.PLAYGROUND_CONSOLE_TAB);
     } catch (error) {
       console.error('Failed to clear playground data:', error);
     }
   }
+
+  /**
+   * Console layout preferences interface
+   */
+  static readonly DEFAULT_CONSOLE_LAYOUT: ConsoleLayoutPreferences = {
+    isCollapsed: false,
+    height: 280,
+    activeTab: 'stdout',
+  };
+
+  /**
+   * Save console layout preferences
+   */
+  static saveConsoleLayout(prefs: ConsoleLayoutPreferences): void {
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.PLAYGROUND_CONSOLE_LAYOUT,
+        JSON.stringify(prefs)
+      );
+    } catch (error) {
+      console.error('Failed to save console layout preferences:', error);
+    }
+  }
+
+  /**
+   * Get saved console layout preferences
+   */
+  static getSavedConsoleLayout(): ConsoleLayoutPreferences | null {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.PLAYGROUND_CONSOLE_LAYOUT);
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      // Validate the parsed object has expected properties
+      if (
+        typeof parsed.isCollapsed === 'boolean' &&
+        typeof parsed.height === 'number' &&
+        typeof parsed.activeTab === 'string'
+      ) {
+        return parsed;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to retrieve console layout preferences:', error);
+      return null;
+    }
+  }
+}
+
+/**
+ * Console layout preferences type
+ */
+export interface ConsoleLayoutPreferences {
+  isCollapsed: boolean;
+  height: number;
+  activeTab: 'stdout' | 'stderr' | 'console';
 }

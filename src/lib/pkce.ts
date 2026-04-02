@@ -58,4 +58,3 @@ export function clearPKCEData(): void {
     console.error('Failed to clear PKCE data:', error);
   }
 }
-
