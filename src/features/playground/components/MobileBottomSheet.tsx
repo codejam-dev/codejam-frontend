@@ -132,7 +132,7 @@ export default function MobileBottomSheet({
 
   return (
     <motion.div
-      className="fixed bottom-0 left-0 right-0 bg-gray-900/98 backdrop-blur-xl border-t border-gray-700/50 rounded-t-2xl z-50 shadow-2xl"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900/98 backdrop-blur-xl border-t border-gray-700/50 rounded-t-2xl shadow-2xl"
       style={{ boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.5)' }}
       initial={{ height: SHEET_HEIGHTS.collapsed }}
       animate={{ height: getHeightValue() }}

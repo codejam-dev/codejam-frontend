@@ -31,6 +31,11 @@ export function useIsMobile(): boolean {
   return useMediaQuery('(max-width: 768px)');
 }
 
+/** Viewport width strictly below 768px (Monaco mobile options, etc.). */
+export function useIsBelow768Width(): boolean {
+  return useMediaQuery('(max-width: 767px)');
+}
+
 export function useIsTablet(): boolean {
   return useMediaQuery('(max-width: 1024px)');
 }

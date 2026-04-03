@@ -21,7 +21,7 @@ export default function FloatingRunButton({
       exit={{ scale: 0, opacity: 0 }}
       whileHover={{ scale: isExecuting ? 1 : 1.1 }}
       whileTap={{ scale: isExecuting ? 1 : 0.95 }}
-      className="fixed bottom-24 right-4 z-50 flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-r from-violet-600 to-pink-600 shadow-lg shadow-violet-500/30 disabled:from-gray-600 disabled:to-gray-700 disabled:shadow-none transition-all"
+      className="fixed bottom-[5.25rem] right-4 z-[60] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-violet-600 to-pink-600 shadow-lg shadow-violet-500/30 transition-all disabled:from-gray-600 disabled:to-gray-700 disabled:shadow-none"
       style={{
         boxShadow: isExecuting 
           ? 'none' 
