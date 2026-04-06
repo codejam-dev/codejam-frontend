@@ -7,10 +7,14 @@ import { getLanguageConfig } from '@/lib/language-templates';
 import * as monaco from 'monaco-editor';
 import { ChevronDown, ChevronUp, Terminal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useIsBelow768Width } from '@/hooks/useMediaQuery';
 
 export interface CodeEditorHandle {
   triggerFind: () => void;
 }
+
+/** Collapsed Input row: border-t + py-2 + text-sm + h-4 icon (matches stdin button strip). */
+export const MOBILE_STDIN_STRIP_HEIGHT_PX = 41;
 
 interface CodeEditorProps {
   language: SupportedLanguage;
@@ -26,6 +30,8 @@ interface CodeEditorProps {
   onInputChange?: (input: string) => void;
   onToggleInputPanel?: () => void;
   onRunCode?: () => void;
+  /** Mobile: pad Monaco scroll area so FAB does not cover the last lines; matches stdin strip height. */
+  mobilePadEditorForStdinStrip?: boolean;
 }
 
 const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function CodeEditor(
@@ -42,12 +48,16 @@ const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function CodeEd
     onInputChange,
     onToggleInputPanel,
     onRunCode,
+    mobilePadEditorForStdinStrip = false,
   },
   ref
 ) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const onRunCodeRef = useRef(onRunCode);
   const [isLoading, setIsLoading] = useState(true);
+  const isBelow768 = useIsBelow768Width();
+  const minimapEnabled = !isBelow768 && settings.minimap;
+  const wordWrapEffective = isBelow768 || settings.wordWrap;
 
   useEffect(() => {
     onRunCodeRef.current = onRunCode;
@@ -85,9 +95,9 @@ const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function CodeEd
     editor.updateOptions({
       fontSize: settings.fontSize,
       tabSize: settings.tabSize,
-      minimap: { enabled: settings.minimap },
+      minimap: { enabled: minimapEnabled },
       lineNumbers: settings.lineNumbers ? 'on' : 'off',
-      wordWrap: settings.wordWrap ? 'on' : 'off',
+      wordWrap: wordWrapEffective ? 'on' : 'off',
       scrollBeyondLastLine: false,
       automaticLayout: true,
       padding: { top: hideChrome ? 12 : 20, bottom: hideChrome ? 12 : 20 },
@@ -120,13 +130,13 @@ const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function CodeEd
       editorRef.current.updateOptions({
         fontSize: settings.fontSize,
         tabSize: settings.tabSize,
-        minimap: { enabled: settings.minimap },
+        minimap: { enabled: minimapEnabled },
         lineNumbers: settings.lineNumbers ? 'on' : 'off',
-        wordWrap: settings.wordWrap ? 'on' : 'off',
+        wordWrap: wordWrapEffective ? 'on' : 'off',
         padding: { top: hideChrome ? 12 : 20, bottom: hideChrome ? 12 : 20 },
       });
     }
-  }, [settings, hideChrome]);
+  }, [settings, hideChrome, minimapEnabled, wordWrapEffective]);
 
   const languageConfig = getLanguageConfig(language);
 
@@ -142,7 +152,14 @@ const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function CodeEd
         </div>
       )}
 
-      <div className="relative min-h-0 flex-1 overflow-hidden">
+      <div
+        className="relative min-h-0 flex-1 overflow-hidden"
+        style={
+          mobilePadEditorForStdinStrip
+            ? { paddingBottom: MOBILE_STDIN_STRIP_HEIGHT_PX }
+            : undefined
+        }
+      >
         {isLoading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#1e1e1e]">
             <div className="flex flex-col items-center gap-4">
@@ -162,9 +179,9 @@ const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function CodeEd
           options={{
             fontSize: settings.fontSize,
             tabSize: settings.tabSize,
-            minimap: { enabled: settings.minimap },
+            minimap: { enabled: minimapEnabled },
             lineNumbers: settings.lineNumbers ? 'on' : 'off',
-            wordWrap: settings.wordWrap ? 'on' : 'off',
+            wordWrap: wordWrapEffective ? 'on' : 'off',
             scrollBeyondLastLine: false,
             automaticLayout: true,
             padding: { top: hideChrome ? 12 : 20, bottom: hideChrome ? 12 : 20 },
@@ -187,7 +204,7 @@ const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function CodeEd
       </div>
 
       {showInputChrome && (
-        <>
+        <div className="relative z-40 shrink-0">
           <button
             type="button"
             onClick={onToggleInputPanel}
@@ -224,7 +241,7 @@ const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function CodeEd
               </motion.div>
             )}
           </AnimatePresence>
-        </>
+        </div>
       )}
     </div>
   );

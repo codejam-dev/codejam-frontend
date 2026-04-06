@@ -19,11 +19,10 @@ import CodeEditor, { type CodeEditorHandle } from './CodeEditor';
 import OutputPanel from './OutputPanel';
 import RunHistoryPanel, { runHistoryLanguage, RunHistoryTabContent } from './RunHistoryPanel';
 import {
-  ExecutionConsole,
   ConsoleMessage,
-  MobileBottomSheet,
   FloatingRunButton,
   MobileHeader,
+  MobileOutputDock,
 } from '@/features/playground/components';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import {
@@ -39,13 +38,12 @@ import {
   SUPPORTED_LANGUAGES,
   getDefaultCode,
 } from '@/lib/language-templates';
-import { PlaygroundService, clampConsoleExpandedHeight } from '@/services/playground.service';
+import { PlaygroundService } from '@/services/playground.service';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function CodePlayground() {
   const { authState } = useAuth();
   const isMobile = useIsMobile();
-  const [mobileOutputOpen, setMobileOutputOpen] = useState(false);
   const [state, setState] = useState<PlaygroundState>({
     language: 'javascript',
     code: '',
@@ -70,8 +68,6 @@ export default function CodePlayground() {
   const [historyRuns, setHistoryRuns] = useState<RunHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [desktopHistoryOpen, setDesktopHistoryOpen] = useState(false);
-  const [isConsoleCollapsed, setIsConsoleCollapsed] = useState(false);
-  const [consoleExpandedHeight, setConsoleExpandedHeight] = useState(280);
   const [consoleTab, setConsoleTab] = useState<ConsoleWorkspaceTab>('stdout');
   const [consoleMessages, setConsoleMessages] = useState<ConsoleMessage[]>([]);
   const [stdinExpanded, setStdinExpanded] = useState(false);
@@ -114,8 +110,6 @@ export default function CodePlayground() {
     }));
 
     if (consoleUi) {
-      setIsConsoleCollapsed(consoleUi.collapsed);
-      setConsoleExpandedHeight(consoleUi.expandedHeightPx);
       setConsoleTab(consoleUi.activeTab);
     }
   }, []);
@@ -209,23 +203,9 @@ export default function CodePlayground() {
     setConsoleMessages([]);
   };
 
-  const toggleConsole = useCallback(() => {
-    setIsConsoleCollapsed((prev) => {
-      const next = !prev;
-      PlaygroundService.saveConsoleCollapsed(next);
-      return next;
-    });
-  }, []);
-
   const handleConsoleTabChange = useCallback((tab: ConsoleWorkspaceTab) => {
     setConsoleTab(tab);
     PlaygroundService.saveConsoleActiveTab(tab);
-  }, []);
-
-  const handleConsoleExpandedHeightChange = useCallback((px: number) => {
-    const next = clampConsoleExpandedHeight(px);
-    setConsoleExpandedHeight(next);
-    PlaygroundService.saveConsoleExpandedHeight(next);
   }, []);
 
   const loadRunHistory = useCallback(async () => {
@@ -373,39 +353,52 @@ export default function CodePlayground() {
 
       {isMobile && (
         <motion.div
-          className="min-h-0 flex-1 overflow-hidden pb-14"
+          className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#1e1e1e]"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
         >
-          <div className="relative h-full bg-[#1e1e1e]">
-            <AnimatePresence>
-              {isLanguageChanging && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="absolute inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-violet-600/25 via-pink-600/25 to-cyan-600/25 backdrop-blur-sm"
-                >
-                  <div className="flex items-center gap-2 rounded-lg border border-violet-500/40 bg-gray-900/85 px-4 py-2 text-sm text-white">
-                    Switching…
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            <div className="relative min-h-0 flex-1 overflow-hidden">
+              <AnimatePresence>
+                {isLanguageChanging && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-violet-600/25 via-pink-600/25 to-cyan-600/25 backdrop-blur-sm"
+                  >
+                    <div className="flex items-center gap-2 rounded-lg border border-violet-500/40 bg-gray-900/85 px-4 py-2 text-sm text-white">
+                      Switching…
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-            <CodeEditor
-              language={state.language}
-              value={state.code}
-              onChange={handleCodeChange}
-              settings={state.settings}
-              onStatsChange={setEditorStats}
-              fileName={fileName}
-              showInputPanel={showInputPanel}
-              input={state.input}
-              onInputChange={(input) => setState((prev) => ({ ...prev, input }))}
-              onToggleInputPanel={() => setShowInputPanel(!showInputPanel)}
-              onRunCode={handleRunCode}
+              <CodeEditor
+                language={state.language}
+                value={state.code}
+                onChange={handleCodeChange}
+                settings={state.settings}
+                onStatsChange={setEditorStats}
+                fileName={fileName}
+                showInputPanel={showInputPanel}
+                input={state.input}
+                onInputChange={(input) => setState((prev) => ({ ...prev, input }))}
+                onToggleInputPanel={() => setShowInputPanel(!showInputPanel)}
+                onRunCode={handleRunCode}
+                mobilePadEditorForStdinStrip
+              />
+            </div>
+
+            <MobileOutputDock
+              output={state.output}
+              isExecuting={state.isExecuting}
+              onClear={handleClearOutput}
+              activeTab={consoleTab}
+              onTabChange={handleConsoleTabChange}
+              consoleMessages={consoleMessages}
+              onClearConsole={handleClearConsole}
             />
           </div>
         </motion.div>
@@ -655,35 +648,11 @@ export default function CodePlayground() {
       )}
 
       {isMobile && (
-        <>
-          <ExecutionConsole
-            output={state.output}
-            isExecuting={state.isExecuting}
-            onClear={handleClearOutput}
-            isCollapsed={isConsoleCollapsed}
-            onToggleCollapse={toggleConsole}
-            activeTab={consoleTab}
-            onActiveTabChange={handleConsoleTabChange}
-            expandedHeightPx={consoleExpandedHeight}
-            onExpandedHeightChange={handleConsoleExpandedHeightChange}
-            consoleMessages={consoleMessages}
-            onClearConsole={handleClearConsole}
-          />
-          <MobileBottomSheet
-            output={state.output}
-            isExecuting={state.isExecuting}
-            onClear={handleClearOutput}
-            isOpen={mobileOutputOpen}
-            onToggle={() => setMobileOutputOpen(!mobileOutputOpen)}
-            consoleMessages={consoleMessages}
-            onClearConsole={handleClearConsole}
-          />
-          <FloatingRunButton onClick={handleRunCode} isExecuting={state.isExecuting} />
-        </>
+        <FloatingRunButton onClick={handleRunCode} isExecuting={state.isExecuting} />
       )}
 
       {isMobile && (
-        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-gray-800/60 bg-zinc-950/95 px-4 py-1.5 text-[11px] text-zinc-500">
+        <div className="relative z-[60] flex shrink-0 items-center justify-between gap-2 border-t border-gray-800/60 bg-zinc-950/95 px-4 py-1.5 text-[11px] text-zinc-500">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span>
               Ln {editorStats.cursorPosition.line}, Col {editorStats.cursorPosition.column}
