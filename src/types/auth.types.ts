@@ -11,6 +11,7 @@ export interface BaseResponse<T = any> {
 export interface LoginRequest {
   email: string;
   password: string;
+  deviceId: string;
 }
 
 export interface RegisterRequest {
@@ -22,29 +23,31 @@ export interface RegisterRequest {
 export interface ValidateOtpRequest {
   otp: string;
   transactionId: string;
+  deviceId: string;
   email?: string;
 }
 
 export interface OauthExchangeRequest {
   code: string;
   codeVerifier: string;
+  deviceId: string;
 }
 
 // Auth Response Types
 export interface AuthResponse {
-  token: string;
+  accessToken: string;
   tokenType: string;
-  userId: string;
+  userId?: string;
   name: string;
   email: string;
+  avatar?: string;
   isEnabled: boolean;
   message: string;
 }
 
 export interface RegisterResponse {
-  token: string;
+  accessToken: string;
   tokenType: string;
-  userId: string;
   name: string;
   email: string;
   isEnabled: boolean;
@@ -57,15 +60,8 @@ export interface GenerateOtpResponse {
   transactionId: string;
 }
 
-export interface OAuthCodeResponse {
-  token: string;
-  tokenType: string;
-  userId: string;
-  email: string;
-  name: string;
-  provider: string;
-  message: string;
-}
+/** OAuth exchange now returns same shape as password login (AuthResponse). */
+export type OAuthCodeResponse = AuthResponse;
 
 // Auth State Types
 export interface AuthState {
@@ -88,9 +84,10 @@ export interface AuthContextType {
   authState: AuthState;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
-  generateOtp: (email: string) => Promise<void>;
-  validateOtp: (email: string, otp: string) => Promise<void>;
+  logout: () => Promise<void>;
+  logoutAll: () => Promise<void>;
+  generateOtp: () => Promise<void>;
+  validateOtp: (otp: string) => Promise<void>;
   exchangeOAuthCode: (code: string) => Promise<void>;
   initiateGoogleLogin: () => void;
   clearError: () => void;

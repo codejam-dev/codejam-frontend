@@ -12,6 +12,8 @@ export interface OutputPanelProps {
   onConsoleTabChange: (tab: ConsoleWorkspaceTab) => void;
   consoleMessages: ConsoleMessage[];
   onClearConsole: () => void;
+  outputAutoScrollTail: boolean;
+  onOutputAutoScrollTailChange: (enabled: boolean) => void;
   /** Editor stacked above (mobile vertical split): top border, flexible metrics height */
   stacked?: boolean;
 }
@@ -24,6 +26,8 @@ export default function OutputPanel({
   onConsoleTabChange,
   consoleMessages,
   onClearConsole,
+  outputAutoScrollTail,
+  onOutputAutoScrollTailChange,
   stacked = false,
 }: OutputPanelProps) {
   return (
@@ -47,6 +51,8 @@ export default function OutputPanel({
           consoleMessages={consoleMessages}
           onClearConsole={onClearConsole}
           embedded
+          outputAutoScrollTail={outputAutoScrollTail}
+          onOutputAutoScrollTailChange={onOutputAutoScrollTailChange}
         />
 
         <div className="shrink-0 border-t border-dashed border-zinc-600/50" />

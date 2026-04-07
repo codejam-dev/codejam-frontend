@@ -1,4 +1,4 @@
-import { API_CONFIG, STORAGE_KEYS } from './config';
+import { API_CONFIG, API_ENDPOINTS, STORAGE_KEYS } from './config';
 import { BaseResponse } from '@/types/auth.types';
 
 export class ApiError extends Error {
@@ -13,19 +13,18 @@ export class ApiError extends Error {
   }
 }
 
+export type RequestCredentialsMode = RequestCredentials;
+
 export class ApiClient {
   private static getToken(): string | null {
     if (typeof window === 'undefined') return null;
 
-    // First check for full auth token
     const authToken = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
     if (authToken) {
       const trimmed = authToken.trim();
-      // Remove "Bearer " prefix if accidentally stored
       return trimmed.startsWith('Bearer ') ? trimmed.substring(7).trim() : trimmed;
     }
 
-    // Fall back to temp token (for OTP flow)
     const tempToken = localStorage.getItem(STORAGE_KEYS.TEMP_TOKEN);
     if (tempToken) {
       const trimmed = tempToken.trim();
@@ -51,10 +50,39 @@ export class ApiClient {
     return headers;
   }
 
+  /**
+   * Uses HttpOnly refresh cookie; stores new access token in localStorage on success.
+   */
+  static async trySilentRefresh(): Promise<boolean> {
+    if (typeof window === 'undefined') return false;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
+      const response = await fetch(API_ENDPOINTS.AUTH.REFRESH, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const data: BaseResponse<{ accessToken?: string }> = await response.json();
+      if (!response.ok || !data.success || !data.data?.accessToken) {
+        return false;
+      }
+      const access = data.data.accessToken.trim().replace(/^Bearer\s+/i, '');
+      localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, access);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   static async request<T = any>(
     url: string,
     options: RequestInit = {},
-    includeAuth: boolean = false
+    includeAuth: boolean = false,
+    retriedAfterRefresh: boolean = false,
+    credentials: RequestCredentialsMode = 'omit'
   ): Promise<BaseResponse<T>> {
     try {
       const controller = new AbortController();
@@ -62,6 +90,7 @@ export class ApiClient {
 
       const response = await fetch(url, {
         ...options,
+        credentials,
         headers: {
           ...this.getHeaders(includeAuth),
           ...options.headers,
@@ -74,12 +103,15 @@ export class ApiClient {
       const data: BaseResponse<T> = await response.json();
 
       if (!response.ok || !data.success) {
-        if (response.status === 401 && includeAuth) {
+        if (response.status === 401 && includeAuth && !retriedAfterRefresh) {
+          const refreshed = await this.trySilentRefresh();
+          if (refreshed) {
+            return this.request<T>(url, options, includeAuth, true, credentials);
+          }
           if (typeof window !== 'undefined') {
             localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
             localStorage.removeItem(STORAGE_KEYS.TEMP_TOKEN);
             localStorage.removeItem(STORAGE_KEYS.USER_DATA);
-            // Redirect to login on session expiry
             window.location.href = '/auth/login?expired=true';
           }
         }
@@ -109,23 +141,24 @@ export class ApiClient {
   }
 
   static async get<T = any>(url: string, includeAuth: boolean = false): Promise<BaseResponse<T>> {
-    return this.request<T>(url, { method: 'GET' }, includeAuth);
+    return this.request<T>(url, { method: 'GET' }, includeAuth, false, 'omit');
   }
 
   static async post<T = any>(
     url: string,
     body?: any,
     includeAuth: boolean = false,
-    customHeaders?: HeadersInit
+    credentials: RequestCredentialsMode = 'omit'
   ): Promise<BaseResponse<T>> {
     return this.request<T>(
       url,
       {
         method: 'POST',
         body: body ? JSON.stringify(body) : undefined,
-        headers: customHeaders,
       },
-      includeAuth
+      includeAuth,
+      false,
+      credentials
     );
   }
 
@@ -140,11 +173,13 @@ export class ApiClient {
         method: 'PUT',
         body: body ? JSON.stringify(body) : undefined,
       },
-      includeAuth
+      includeAuth,
+      false,
+      'omit'
     );
   }
 
   static async delete<T = any>(url: string, includeAuth: boolean = false): Promise<BaseResponse<T>> {
-    return this.request<T>(url, { method: 'DELETE' }, includeAuth);
+    return this.request<T>(url, { method: 'DELETE' }, includeAuth, false, 'omit');
   }
 }

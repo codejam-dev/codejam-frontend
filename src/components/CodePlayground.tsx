@@ -72,6 +72,8 @@ export default function CodePlayground() {
   const [consoleMessages, setConsoleMessages] = useState<ConsoleMessage[]>([]);
   const [stdinExpanded, setStdinExpanded] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [mobileRunRevealTick, setMobileRunRevealTick] = useState(0);
+  const [outputAutoScrollTail, setOutputAutoScrollTail] = useState(true);
 
   const languageDropdownRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -112,6 +114,7 @@ export default function CodePlayground() {
     if (consoleUi) {
       setConsoleTab(consoleUi.activeTab);
     }
+    setOutputAutoScrollTail(PlaygroundService.getOutputAutoScrollTail());
   }, []);
 
   useEffect(() => {
@@ -142,16 +145,24 @@ export default function CodePlayground() {
         output: result,
         isExecuting: false,
       }));
+      if (isMobile) setMobileRunRevealTick((t) => t + 1);
       PlaygroundService.getRunHistory(authState.token).then(setHistoryRuns);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to execute code';
       setState((prev) => ({
         ...prev,
         error: message,
+        output: {
+          stdout: '',
+          stderr: message,
+          exitCode: 1,
+          executionTime: 0,
+        },
         isExecuting: false,
       }));
+      if (isMobile) setMobileRunRevealTick((t) => t + 1);
     }
-  }, [state.language, state.code, state.input, authState.token]);
+  }, [state.language, state.code, state.input, authState.token, isMobile]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -206,6 +217,11 @@ export default function CodePlayground() {
   const handleConsoleTabChange = useCallback((tab: ConsoleWorkspaceTab) => {
     setConsoleTab(tab);
     PlaygroundService.saveConsoleActiveTab(tab);
+  }, []);
+
+  const handleOutputAutoScrollTailChange = useCallback((enabled: boolean) => {
+    setOutputAutoScrollTail(enabled);
+    PlaygroundService.saveOutputAutoScrollTail(enabled);
   }, []);
 
   const loadRunHistory = useCallback(async () => {
@@ -399,6 +415,9 @@ export default function CodePlayground() {
               onTabChange={handleConsoleTabChange}
               consoleMessages={consoleMessages}
               onClearConsole={handleClearConsole}
+              revealAfterRunTick={mobileRunRevealTick}
+              outputAutoScrollTail={outputAutoScrollTail}
+              onOutputAutoScrollTailChange={handleOutputAutoScrollTailChange}
             />
           </div>
         </motion.div>
@@ -553,6 +572,8 @@ export default function CodePlayground() {
                     onConsoleTabChange={handleConsoleTabChange}
                     consoleMessages={consoleMessages}
                     onClearConsole={handleClearConsole}
+                    outputAutoScrollTail={outputAutoScrollTail}
+                    onOutputAutoScrollTailChange={handleOutputAutoScrollTailChange}
                   />
                 </Split>
               </div>

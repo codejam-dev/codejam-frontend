@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Terminal,
@@ -13,7 +13,9 @@ import {
   Trash2,
   Cpu,
   Zap,
+  ArrowDownToLine,
 } from 'lucide-react';
+import { useOutputPaneTailScroll } from '@/features/playground/hooks/useOutputPaneTailScroll';
 import { CodeExecutionResponse, ConsoleWorkspaceTab } from '@/types/playground.types';
 
 export type ConsoleTab = ConsoleWorkspaceTab;
@@ -32,6 +34,8 @@ interface ExecutionConsoleProps {
   onClearConsole?: () => void;
   /** Right-rail layout: fill parent flex, no collapse/resize chrome */
   embedded?: boolean;
+  outputAutoScrollTail: boolean;
+  onOutputAutoScrollTailChange: (enabled: boolean) => void;
 }
 
 export interface ConsoleMessage {
@@ -54,6 +58,8 @@ export default function ExecutionConsole({
   consoleMessages = [],
   onClearConsole,
   embedded = false,
+  outputAutoScrollTail,
+  onOutputAutoScrollTailChange,
 }: ExecutionConsoleProps) {
   const [copied, setCopied] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -97,13 +103,6 @@ export default function ExecutionConsole({
     window.addEventListener('mouseup', onUp);
   };
 
-  // Auto-scroll to bottom when content changes
-  useEffect(() => {
-    if (contentRef.current && !isCollapsed) {
-      contentRef.current.scrollTop = contentRef.current.scrollHeight;
-    }
-  }, [output, consoleMessages, isCollapsed]);
-
   const handleCopy = async () => {
     let textToCopy = '';
     if (activeTab === 'stdout' && output?.stdout) {
@@ -139,6 +138,23 @@ export default function ExecutionConsole({
 
   const expanded = embedded ? true : !isCollapsed;
 
+  const tailScrollToken = useMemo(
+    () =>
+      [
+        expanded ? '1' : '0',
+        activeTab,
+        isExecuting,
+        output?.stdout?.length ?? 0,
+        output?.stderr?.length ?? 0,
+        output?.error?.length ?? 0,
+        consoleMessages.length,
+        consoleMessages.at(-1)?.id ?? '',
+      ].join('|'),
+    [expanded, activeTab, isExecuting, output, consoleMessages]
+  );
+
+  useOutputPaneTailScroll(contentRef, outputAutoScrollTail, tailScrollToken);
+
   return (
     <motion.div
       initial={false}
@@ -168,9 +184,9 @@ export default function ExecutionConsole({
       {/* Subtle glow line at top */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/30 to-transparent pointer-events-none" />
 
-      {/* Header with tabs and collapse toggle */}
-      <div className="flex items-center justify-between px-4 h-11 bg-gray-900/80 border-b border-gray-800/50 backdrop-blur-sm shrink-0">
-        <div className="flex items-center gap-1">
+      {/* Header: tabs scroll horizontally so Copy / Tail / Clear never clip in narrow split panes */}
+      <div className="flex min-w-0 items-center gap-2 px-2 sm:px-4 h-11 bg-gray-900/80 border-b border-gray-800/50 backdrop-blur-sm shrink-0">
+        <div className="flex min-h-0 min-w-0 flex-1 items-center gap-1 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {/* STDOUT Tab */}
           <TabButton
             isActive={activeTab === 'stdout'}
@@ -205,8 +221,8 @@ export default function ExecutionConsole({
           />
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2">
+        {/* Actions — shrink-0 keeps Tail / Copy / Clear visible when the output pane is narrow */}
+        <div className="flex shrink-0 items-center gap-1 border-l border-gray-800/60 pl-2 sm:gap-1.5 sm:pl-2.5">
           {/* Executing indicator */}
           <AnimatePresence>
             {isExecuting && (
@@ -214,10 +230,10 @@ export default function ExecutionConsole({
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
-                className="flex items-center gap-2 px-3 py-1.5 bg-violet-500/10 border border-violet-500/30 rounded-lg"
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2 py-1 sm:gap-2 sm:px-2.5 sm:py-1.5"
               >
                 <LoadingSpinner />
-                <span className="text-xs font-medium text-violet-400">Running...</span>
+                <span className="hidden text-xs font-medium text-violet-400 sm:inline">Running...</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -228,7 +244,7 @@ export default function ExecutionConsole({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleCopy}
-              className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all border border-transparent hover:border-gray-700/50"
+              className="shrink-0 p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all border border-transparent hover:border-gray-700/50"
               title="Copy output"
             >
               {copied ? (
@@ -239,13 +255,41 @@ export default function ExecutionConsole({
             </motion.button>
           )}
 
+          {(embedded || !isCollapsed) && (
+            <motion.button
+              type="button"
+              aria-pressed={outputAutoScrollTail}
+              aria-label={
+                outputAutoScrollTail
+                  ? 'Auto-scroll to end is on. Click to keep scroll position when output updates.'
+                  : 'Auto-scroll to end is off. Click to follow new output to the bottom.'
+              }
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => onOutputAutoScrollTailChange(!outputAutoScrollTail)}
+              className={`flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition-all sm:px-2.5 ${
+                outputAutoScrollTail
+                  ? 'border-violet-500/50 bg-violet-500/15 text-violet-200'
+                  : 'border-transparent text-gray-400 hover:border-gray-700/50 hover:bg-gray-800/50 hover:text-white'
+              }`}
+              title={
+                outputAutoScrollTail
+                  ? 'Auto-scroll to end: on (follow new output)'
+                  : 'Auto-scroll to end: off (keep scroll position; click to tail output)'
+              }
+            >
+              <ArrowDownToLine className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+              <span>Tail</span>
+            </motion.button>
+          )}
+
           {/* Clear button */}
           {(embedded || !isCollapsed) && (
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleClear}
-              className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all border border-transparent hover:border-gray-700/50"
+              className="shrink-0 p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all border border-transparent hover:border-gray-700/50"
               title="Clear"
             >
               <Trash2 className="w-4 h-4" />
@@ -258,7 +302,7 @@ export default function ExecutionConsole({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={onToggleCollapse}
-              className="rounded-lg border border-transparent p-2 text-gray-400 transition-all hover:border-gray-700/50 hover:bg-gray-800/50 hover:text-white"
+              className="shrink-0 rounded-lg border border-transparent p-2 text-gray-400 transition-all hover:border-gray-700/50 hover:bg-gray-800/50 hover:text-white"
               title={isCollapsed ? 'Expand console' : 'Collapse console'}
             >
               {isCollapsed ? (
@@ -331,8 +375,9 @@ function TabButton({ isActive, onClick, icon, label, count, countColor, activeGr
 
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`relative px-3 py-2 text-xs font-medium transition-all duration-200 rounded-t-lg ${
+      className={`relative shrink-0 px-3 py-2 text-xs font-medium transition-all duration-200 rounded-t-lg ${
         isActive
           ? `${activeTextClass} bg-[#0d1117] border-t border-x border-gray-800/50`
           : 'text-gray-500 hover:text-gray-300'
