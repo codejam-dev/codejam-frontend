@@ -71,13 +71,10 @@ export class PlaygroundService {
         code: request.code,
       };
 
-      // Get auth token - use provided token or try to get from localStorage
-      const authToken = token !== undefined ? token : this.getAuthToken();
-      
-      // Check if token exists and is not expired
+      let authToken = token !== undefined ? token : await this.ensureFreshAccessToken();
+
       if (!authToken || this.isTokenExpired(authToken)) {
         this.handleSessionExpired();
-        // Return a placeholder - the redirect will happen
         return {
           stdout: '',
           stderr: '',
@@ -99,8 +96,34 @@ export class PlaygroundService {
       });
 
       if (!response.ok) {
-        // Handle 401 - redirect to login
         if (response.status === 401) {
+          const recovered = await ApiClient.trySilentRefresh();
+          if (recovered) {
+            const retryToken = this.getAuthToken();
+            if (retryToken && !this.isTokenExpired(retryToken)) {
+              const retry = await fetch(API_ENDPOINTS.PLAYGROUND.EXECUTE, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${retryToken}`,
+                },
+                body: JSON.stringify(backendRequest),
+              });
+              if (retry.ok) {
+                const result = await retry.json();
+                return {
+                  stdout: result.stdout || '',
+                  stderr: result.stderr || result.errorMessage || '',
+                  exitCode: result.exitCode ?? (result.status === 'SUCCESS' ? 0 : 1),
+                  executionTime: result.executionTimeMs || 0,
+                  error:
+                    result.status === 'SYSTEM_ERROR' || result.status === 'TIMEOUT'
+                      ? result.errorMessage || result.status
+                      : undefined,
+                };
+              }
+            }
+          }
           this.handleSessionExpired();
           return {
             stdout: '',
@@ -144,7 +167,7 @@ export class PlaygroundService {
    * Get last 10 run history for the authenticated user
    */
   static async getRunHistory(token?: string | null): Promise<RunHistoryItem[]> {
-    const authToken = token !== undefined ? token : this.getAuthToken();
+    let authToken = token !== undefined ? token : await this.ensureFreshAccessToken();
     if (!authToken || this.isTokenExpired(authToken)) {
       this.handleSessionExpired();
       return [];
@@ -157,6 +180,21 @@ export class PlaygroundService {
         },
       });
       if (response.status === 401) {
+        const recovered = await ApiClient.trySilentRefresh();
+        if (recovered) {
+          const retryToken = this.getAuthToken();
+          if (retryToken && !this.isTokenExpired(retryToken)) {
+            const retry = await fetch(API_ENDPOINTS.PLAYGROUND.HISTORY, {
+              method: 'GET',
+              headers: { Authorization: `Bearer ${retryToken}` },
+            });
+            if (retry.ok) {
+              const data = await retry.json();
+              if (Array.isArray(data)) return data;
+              if (data && Array.isArray(data.runHistory)) return data.runHistory;
+            }
+          }
+        }
         this.handleSessionExpired();
         return [];
       }
@@ -175,6 +213,21 @@ export class PlaygroundService {
     } catch {
       return [];
     }
+  }
+
+  private static async ensureFreshAccessToken(): Promise<string | null> {
+    let authToken = this.getAuthToken();
+    if (authToken && !this.isTokenExpired(authToken)) {
+      return authToken;
+    }
+    const ok = await ApiClient.trySilentRefresh();
+    if (ok) {
+      authToken = this.getAuthToken();
+      if (authToken && !this.isTokenExpired(authToken)) {
+        return authToken;
+      }
+    }
+    return null;
   }
 
   /**
@@ -439,6 +492,30 @@ export class PlaygroundService {
     }
   }
 
+  /** When true, output panes scroll to the latest line as content updates; when false, scroll position stays manual. */
+  static getOutputAutoScrollTail(): boolean {
+    if (typeof window === 'undefined') return true;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.PLAYGROUND_OUTPUT_AUTOSCROLL);
+      if (raw === null) return true;
+      return raw === 'true';
+    } catch (error) {
+      console.error('Failed to read output auto-scroll preference:', error);
+      return true;
+    }
+  }
+
+  static saveOutputAutoScrollTail(enabled: boolean): void {
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.PLAYGROUND_OUTPUT_AUTOSCROLL,
+        enabled ? 'true' : 'false'
+      );
+    } catch (error) {
+      console.error('Failed to save output auto-scroll preference:', error);
+    }
+  }
+
   /**
    * Clear all saved playground data
    */
@@ -451,6 +528,7 @@ export class PlaygroundService {
       localStorage.removeItem(STORAGE_KEYS.PLAYGROUND_CONSOLE_COLLAPSED);
       localStorage.removeItem(STORAGE_KEYS.PLAYGROUND_CONSOLE_HEIGHT);
       localStorage.removeItem(STORAGE_KEYS.PLAYGROUND_CONSOLE_TAB);
+      localStorage.removeItem(STORAGE_KEYS.PLAYGROUND_OUTPUT_AUTOSCROLL);
     } catch (error) {
       console.error('Failed to clear playground data:', error);
     }

@@ -1,49 +1,49 @@
 # CodeJam Frontend
 
-Next.js frontend for CodeJam - a real-time collaborative coding platform with an integrated code editor, authentication, and code execution playground.
+Next.js app for **CodeJam**: auth, Monaco code playground, and execution against the **CodeJam backend** (modular monolith on port **8080** by default).
 
-## Tech Stack
+## Tech stack
 
-- Next.js 15 (App Router, Turbopack)
-- React 19, TypeScript
-- Tailwind CSS v4
-- Monaco Editor (code editing)
-- Framer Motion (animations)
-- Zod + React Hook Form (validation)
+- **Next.js 15** (App Router)
+- **React 19**, **TypeScript**
+- **Tailwind CSS** + **shadcn/ui**
+- **Monaco Editor** (editing)
+- **Zod** + **React Hook Form** (forms)
+- **Framer Motion** (landing / motion)
 
 ## Features
 
 ### Authentication
-- Email/password registration with password strength validation
+
+- Email/password registration (with strength validation)
 - Email verification via 6-digit OTP
-- Google OAuth 2.0 with PKCE (code challenge/verifier)
+- **Google OAuth 2.0** with **PKCE** (S256)
 - Password reset flow
-- JWT-based session management with auto-expiry detection
-- Protected routes for authenticated pages
+- **Access JWT** stored in `localStorage`; **refresh token** in **HttpOnly** cookie (path `/v1/api/auth`)
+- **Device ID** persisted per browser (`codejam_device_id`) for session binding
+- Silent **token refresh** via `api-client` + `POST .../auth/refresh` with credentials
+- Protected routes (`ProtectedRoute`, `AuthContext`)
 
-### Code Playground
-- Monaco Editor with syntax highlighting for 7 languages
-- **Supported Languages**: JavaScript, Python, Java, C++, C, Go, Rust
-- Code execution via backend API with stdout/stderr output
-- Input panel for stdin
-- Execution metrics (time, memory, exit code)
-- Editor settings (font size, tab size, minimap, word wrap, theme)
-- Code persistence per language (localStorage)
+### Code playground
 
-### UI/UX
-- Animated landing page with feature showcase
-- Dark theme (navy/violet gradient)
-- Responsive design (mobile, tablet, desktop)
-- Navigation bar with user dropdown
-- Loading states and error handling
+- Monaco with syntax highlighting for supported languages
+- Run code via **`POST /v1/api/execution/run`**; history via **`/v1/api/execution/history`**
+- stdin panel, stdout/stderr, execution metrics
+- Editor settings (font, tabs, minimap, wrap, theme)
+- Per-language snippet persistence (`localStorage`)
+
+### UI
+
+- Dark-first landing and app chrome
+- Responsive layout
+- Nav bar with user menu
+
+## Prerequisites
+
+- **Node.js 20+** (LTS recommended)
+- npm (or pnpm/yarn if you adapt commands)
 
 ## Setup
-
-### Prerequisites
-- Node.js 18+
-- npm
-
-### Installation
 
 ```bash
 npm install
@@ -51,13 +51,18 @@ npm install
 
 ### Environment
 
-Create `.env.local`:
+Create **`.env.local`** in this directory (Next.js loads it automatically):
 
 ```env
+# Single backend origin (modular monolith — no separate gateway service)
 NEXT_PUBLIC_API_GATEWAY_URL=http://localhost:8080
 NEXT_PUBLIC_AUTH_API_URL=http://localhost:8080/v1/api/auth
 NEXT_PUBLIC_OAUTH_CALLBACK_URL=http://localhost:3000/auth/callback
 ```
+
+Production: set these to your deployed API URL (same host for gateway + auth paths).
+
+Canonical definitions live in [`src/lib/config.ts`](src/lib/config.ts).
 
 ### Development
 
@@ -65,76 +70,51 @@ NEXT_PUBLIC_OAUTH_CALLBACK_URL=http://localhost:3000/auth/callback
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open [http://localhost:3000](http://localhost:3000).
 
-### Build
+### Production build
 
 ```bash
 npm run build
 npm start
 ```
 
-## Project Structure
+## Project structure (overview)
 
 ```
 src/
-├── app/                        # Next.js App Router
-│   ├── page.tsx                # Landing page
-│   ├── layout.tsx              # Root layout (AuthProvider)
-│   ├── auth/
-│   │   ├── login/              # Email/password login
-│   │   ├── register/           # User registration
-│   │   ├── verify-otp/         # OTP verification
-│   │   ├── callback/           # OAuth callback handler
-│   │   ├── forgot-password/    # Password recovery
-│   │   ├── reset-password/     # Password reset
-│   │   └── verify-reset-otp/   # Reset OTP verification
-│   ├── dashboard/              # User dashboard (protected)
-│   └── playground/             # Code editor (protected)
-├── components/
-│   ├── CodeEditor.tsx          # Monaco editor wrapper
-│   ├── CodePlayground.tsx      # Full playground (editor + output)
-│   ├── OutputPanel.tsx         # Execution results display
-│   ├── ExecutionMetrics.tsx    # Code stats (lines, chars, cursor)
-│   ├── NavBar.tsx              # Navigation with user menu
-│   ├── ProtectedRoute.tsx      # Auth guard wrapper
-│   └── ComingSoonFeatures.tsx  # Marketing section
-├── contexts/
-│   └── AuthContext.tsx         # Auth state management
-├── services/
-│   ├── auth.service.ts         # Auth API (login, register, OTP, OAuth)
-│   └── playground.service.ts   # Code execution + persistence
-├── lib/
-│   ├── api-client.ts           # HTTP client with auth headers
-│   ├── config.ts               # API endpoints, storage keys
-│   ├── pkce.ts                 # PKCE implementation (S256)
-│   └── language-templates.ts   # Language configs + default code
-├── types/
-│   ├── auth.ts                 # Auth types (User, AuthResponse)
-│   ├── auth.types.ts           # Extended auth interfaces
-│   └── playground.types.ts     # Playground types (languages, execution)
+├── app/                 # App Router routes (landing, auth/*, playground, dashboard)
+├── components/          # UI (CodeEditor, CodePlayground, NavBar, …)
+├── contexts/            # AuthContext
+├── services/            # auth.service.ts, playground.service.ts
+├── lib/                 # api-client.ts, config.ts, pkce.ts, …
+├── types/               # auth + playground types
 └── utils/
-    └── platform.ts             # OS detection (cmd vs ctrl)
 ```
 
-## Auth Flow
+## Auth flow (current)
 
 ```
-Register → Temp Token → Generate OTP → Verify OTP → Full Token
-Login → Full Token (if verified) or Temp Token → OTP flow
-Google OAuth → PKCE challenge → Callback → Code Exchange → Full Token
+Register → temp access JWT → generate OTP → verify OTP (+ deviceId) → access + refresh cookie
+Login (+ deviceId) → access JWT (+ refresh cookie if verified) or temp JWT if email unverified
+Google OAuth → PKCE → callback → oauth/exchange (+ deviceId) → access + refresh cookie
 ```
 
-All tokens stored in localStorage. Protected routes redirect to login if no valid token.
+Refresh: **cookie** sent with `credentials: 'include'` to **`/v1/api/auth/refresh`**; new **access** token returned in JSON.
 
 ## Scripts
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start dev server (Turbopack) |
+| `npm run dev` | Dev server |
 | `npm run build` | Production build |
-| `npm start` | Start production server |
-| `npm run lint` | Run ESLint |
+| `npm start` | Run production server |
+| `npm run lint` | ESLint |
+
+## Related
+
+- Backend API & compose: [../codejam-backend/README.md](../codejam-backend/README.md)
+- Monorepo overview: [../README.md](../README.md)
 
 ## License
 

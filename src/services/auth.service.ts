@@ -11,36 +11,47 @@ import {
   BaseResponse,
 } from '@/types/auth.types';
 
+function pickAccessToken(data: { accessToken?: string; token?: string } | undefined): string | null {
+  if (!data) return null;
+  const t = data.accessToken ?? (data as { token?: string }).token;
+  return t ? String(t).trim() : null;
+}
+
 export class AuthService {
-  /**
-   * Register a new user - Returns temp token
-   */
+  static getOrCreateDeviceId(): string {
+    if (typeof window === 'undefined') return '';
+    let id = localStorage.getItem(STORAGE_KEYS.DEVICE_ID);
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(STORAGE_KEYS.DEVICE_ID, id);
+    }
+    return id;
+  }
+
   static async register(data: RegisterRequest): Promise<BaseResponse<RegisterResponse>> {
     const response = await ApiClient.post<RegisterResponse>(API_ENDPOINTS.AUTH.REGISTER, data);
 
     if (response.success && response.data) {
-      // Store temp token for OTP verification
-      this.saveTempToken(response.data.token);
+      const access = pickAccessToken(response.data as { accessToken?: string; token?: string });
+      if (access) {
+        this.saveTempToken(access);
+      }
       this.setPendingEmail(response.data.email);
     }
 
     return response;
   }
 
-  /**
-   * Generate OTP using temp token
-   */
   static async generateOtp(): Promise<BaseResponse<GenerateOtpResponse>> {
     const tempToken = this.getTempToken();
     if (!tempToken) {
       throw new Error('No temp token found. Please register first.');
     }
 
-    // Call API with temp token in Authorization header
     const response = await ApiClient.post<GenerateOtpResponse>(
       API_ENDPOINTS.AUTH.GENERATE_OTP,
       undefined,
-      true  // Include auth (will use temp token)
+      true
     );
 
     if (response.success && response.data?.transactionId) {
@@ -50,9 +61,6 @@ export class AuthService {
     return response;
   }
 
-  /**
-   * Validate OTP and get full token
-   */
   static async validateOtp(otp: string): Promise<BaseResponse<AuthResponse>> {
     const tempToken = this.getTempToken();
     const transactionId = this.getPendingTransactionId();
@@ -65,15 +73,18 @@ export class AuthService {
       throw new Error('No transaction ID found. Please generate OTP first.');
     }
 
-    // Call API with temp token in Authorization header
     const response = await ApiClient.post<AuthResponse>(
       API_ENDPOINTS.AUTH.VALIDATE_OTP,
-      { otp, transactionId },
-      true  // Include auth (will use temp token)
+      {
+        otp,
+        transactionId,
+        deviceId: this.getOrCreateDeviceId(),
+      },
+      true,
+      'include'
     );
 
     if (response.success && response.data) {
-      // Clear temp data and save full auth data
       this.clearTempData();
       this.saveAuthData(response.data);
     }
@@ -81,19 +92,26 @@ export class AuthService {
     return response;
   }
 
-  /**
-   * Login with email and password
-   */
   static async login(data: LoginRequest): Promise<BaseResponse<AuthResponse>> {
-    const response = await ApiClient.post<AuthResponse>(API_ENDPOINTS.AUTH.LOGIN, data);
+    const payload: LoginRequest = {
+      ...data,
+      deviceId: data.deviceId || this.getOrCreateDeviceId(),
+    };
+    const response = await ApiClient.post<AuthResponse>(API_ENDPOINTS.AUTH.LOGIN, payload, false, 'include');
 
     if (response.success && response.data) {
-      // If user is not enabled, store temp token and email for OTP verification
-      if (!response.data.isEnabled) {
-        this.saveTempToken(response.data.token);
+      const isEnabled =
+        response.data.isEnabled !== undefined
+          ? response.data.isEnabled
+          : ((response.data as { enabled?: boolean }).enabled ?? false);
+
+      if (!isEnabled) {
+        const access = pickAccessToken(response.data as { accessToken?: string; token?: string });
+        if (access) {
+          this.saveTempToken(access);
+        }
         this.setPendingEmail(response.data.email);
       } else {
-        // User is enabled, save full auth data
         this.saveAuthData(response.data);
       }
     }
@@ -101,12 +119,9 @@ export class AuthService {
     return response;
   }
 
-  /**
-   * Exchange OAuth code for token with PKCE code_verifier
-   */
   static async exchangeOAuthCode(code: string): Promise<BaseResponse<OAuthCodeResponse>> {
     const { getCodeVerifier, clearPKCEData } = await import('@/lib/pkce');
-    
+
     const codeVerifier = getCodeVerifier();
     if (!codeVerifier) {
       throw new Error('PKCE code verifier not found. Please initiate OAuth login again.');
@@ -114,58 +129,52 @@ export class AuthService {
 
     const response = await ApiClient.post<OAuthCodeResponse>(
       API_ENDPOINTS.AUTH.OAUTH_EXCHANGE,
-      { code, codeVerifier }
+      {
+        code,
+        codeVerifier,
+        deviceId: this.getOrCreateDeviceId(),
+      },
+      false,
+      'include'
     );
 
     if (response.success && response.data) {
       this.saveAuthData(response.data);
-      // Clear PKCE data after successful exchange
       clearPKCEData();
     }
 
     return response;
   }
 
-  /**
-   * Initiate Google OAuth login with PKCE
-   */
   static async initiateGoogleLogin(): Promise<void> {
     if (typeof window === 'undefined') return;
 
     const { generateCodeVerifier, generateCodeChallenge, storeCodeVerifier } = await import('@/lib/pkce');
-    
-    // Generate PKCE code verifier and challenge
+
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = await generateCodeChallenge(codeVerifier);
-    
-    // Store code verifier for later use during code exchange
+
     storeCodeVerifier(codeVerifier);
-    
-    // Build OAuth URL with PKCE parameters
+
     const url = new URL(OAUTH_CONFIG.GOOGLE_AUTH_URL);
     url.searchParams.set('code_challenge', codeChallenge);
     url.searchParams.set('code_challenge_method', 'S256');
-    
+
     window.location.href = url.toString();
   }
 
-  /**
-   * Logout user
-   */
+  static async refreshAccessToken(): Promise<boolean> {
+    return ApiClient.trySilentRefresh();
+  }
+
   static async logout(): Promise<void> {
     if (typeof window === 'undefined') return;
 
     try {
-      // Call backend logout endpoint to invalidate token on server
-      const token = this.getToken();
-      if (token) {
-        await ApiClient.post(API_ENDPOINTS.AUTH.LOGOUT, undefined, true);
-      }
+      await ApiClient.post(API_ENDPOINTS.AUTH.LOGOUT, undefined, false, 'include');
     } catch (error) {
-      // Even if backend logout fails, clear local storage
       console.error('Logout API call failed:', error);
     } finally {
-      // Always clear local storage
       localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
       localStorage.removeItem(STORAGE_KEYS.TEMP_TOKEN);
       localStorage.removeItem(STORAGE_KEYS.USER_DATA);
@@ -174,31 +183,36 @@ export class AuthService {
     }
   }
 
-  /**
-   * Get stored token (prefers full token over temp token)
-   */
+  static async logoutAll(): Promise<void> {
+    if (typeof window === 'undefined') return;
+
+    try {
+      await ApiClient.post(API_ENDPOINTS.AUTH.LOGOUT_ALL, undefined, true, 'include');
+    } catch (error) {
+      console.error('Logout all API call failed:', error);
+    } finally {
+      localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.TEMP_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+      localStorage.removeItem(STORAGE_KEYS.PENDING_EMAIL);
+      localStorage.removeItem(STORAGE_KEYS.PENDING_TRANSACTION_ID);
+    }
+  }
+
   static getToken(): string | null {
     if (typeof window === 'undefined') return null;
 
-    // First check for full token
     const fullToken = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
     if (fullToken) return fullToken;
 
-    // Fall back to temp token
     return localStorage.getItem(STORAGE_KEYS.TEMP_TOKEN);
   }
 
-  /**
-   * Get temp token only
-   */
   static getTempToken(): string | null {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem(STORAGE_KEYS.TEMP_TOKEN);
   }
 
-  /**
-   * Get stored user data
-   */
   static getUser(): User | null {
     if (typeof window === 'undefined') return null;
 
@@ -212,9 +226,6 @@ export class AuthService {
     }
   }
 
-  /**
-   * Check if user is authenticated (has full token with enabled=true)
-   */
   static isAuthenticated(): boolean {
     const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
     if (!token) return false;
@@ -225,9 +236,6 @@ export class AuthService {
     return !this.isTokenExpired(token);
   }
 
-  /**
-   * Check if token is expired
-   */
   static isTokenExpired(token: string): boolean {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
@@ -237,74 +245,54 @@ export class AuthService {
     }
   }
 
-  /**
-   * Get pending email for OTP verification
-   */
   static getPendingEmail(): string | null {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem(STORAGE_KEYS.PENDING_EMAIL);
   }
 
-  /**
-   * Get pending transaction ID
-   */
   static getPendingTransactionId(): string | null {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem(STORAGE_KEYS.PENDING_TRANSACTION_ID);
   }
 
-  /**
-   * Save authentication data (full token)
-   */
   private static saveAuthData(data: AuthResponse | OAuthCodeResponse | RegisterResponse): void {
     if (typeof window === 'undefined') return;
 
-    const cleanToken = data.token.trim().replace(/^Bearer\s+/i, '');
+    const access = pickAccessToken(data as { accessToken?: string; token?: string });
+    if (!access) return;
+
+    const cleanToken = access.trim().replace(/^Bearer\s+/i, '');
     localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, cleanToken);
 
-    // Handle both 'isEnabled' and 'enabled' from backend
-    const isEnabled = 'isEnabled' in data 
-      ? data.isEnabled 
-      : ('enabled' in data ? (data as any).enabled : true);
+    const isEnabled =
+      'isEnabled' in data ? data.isEnabled : ('enabled' in data ? (data as { enabled?: boolean }).enabled : true);
 
     const user: User = {
-      userId: data.userId,
+      userId: (data as AuthResponse).userId ?? '',
       name: data.name,
       email: data.email,
-      isEnabled: isEnabled,
+      isEnabled: isEnabled ?? true,
     };
 
     localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
   }
 
-  /**
-   * Save temp token
-   */
   private static saveTempToken(token: string): void {
     if (typeof window === 'undefined') return;
     const cleanToken = token.trim().replace(/^Bearer\s+/i, '');
     localStorage.setItem(STORAGE_KEYS.TEMP_TOKEN, cleanToken);
   }
 
-  /**
-   * Set pending email for OTP flow
-   */
   private static setPendingEmail(email: string): void {
     if (typeof window === 'undefined') return;
     localStorage.setItem(STORAGE_KEYS.PENDING_EMAIL, email);
   }
 
-  /**
-   * Set pending transaction ID
-   */
   private static setPendingTransactionId(transactionId: string): void {
     if (typeof window === 'undefined') return;
     localStorage.setItem(STORAGE_KEYS.PENDING_TRANSACTION_ID, transactionId);
   }
 
-  /**
-   * Clear temporary data after successful verification
-   */
   private static clearTempData(): void {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(STORAGE_KEYS.TEMP_TOKEN);
@@ -312,9 +300,6 @@ export class AuthService {
     localStorage.removeItem(STORAGE_KEYS.PENDING_TRANSACTION_ID);
   }
 
-  /**
-   * Check health of auth service
-   */
   static async checkHealth(): Promise<boolean> {
     try {
       const response = await ApiClient.get(API_ENDPOINTS.AUTH.HEALTH);

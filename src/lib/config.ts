@@ -15,6 +15,7 @@ export const OAUTH_CONFIG = {
 export const STORAGE_KEYS = {
   AUTH_TOKEN: 'codejam_auth_token',
   TEMP_TOKEN: 'codejam_temp_token',
+  DEVICE_ID: 'codejam_device_id',
   USER_DATA: 'codejam_user_data',
   PENDING_EMAIL: 'codejam_pending_email',
   PENDING_TRANSACTION_ID: 'codejam_pending_transaction_id',
@@ -25,6 +26,7 @@ export const STORAGE_KEYS = {
   PLAYGROUND_CONSOLE_COLLAPSED: 'codejam_playground_console_collapsed',
   PLAYGROUND_CONSOLE_HEIGHT: 'codejam_playground_console_height',
   PLAYGROUND_CONSOLE_TAB: 'codejam_playground_console_tab',
+  PLAYGROUND_OUTPUT_AUTOSCROLL: 'codejam_playground_output_autoscroll',
 };
 
 // API Endpoints
@@ -32,7 +34,9 @@ export const API_ENDPOINTS = {
   AUTH: {
     REGISTER: `${API_CONFIG.AUTH_BASE_URL}/register`,
     LOGIN: `${API_CONFIG.AUTH_BASE_URL}/login`,
+    REFRESH: `${API_CONFIG.AUTH_BASE_URL}/refresh`,
     LOGOUT: `${API_CONFIG.AUTH_BASE_URL}/logout`,
+    LOGOUT_ALL: `${API_CONFIG.AUTH_BASE_URL}/logoutAll`,
     GENERATE_OTP: `${API_CONFIG.AUTH_BASE_URL}/generateOtp`,
     VALIDATE_OTP: `${API_CONFIG.AUTH_BASE_URL}/validateOtp`,
     RESET_PASSWORD: `${API_CONFIG.AUTH_BASE_URL}/resetPassword`,

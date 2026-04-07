@@ -113,8 +113,9 @@ export const authAPI = {
     
     // Transform response to match AuthResponse format
     const authData = response.data as any;
+    const access = authData.accessToken ?? authData.token;
     return {
-      token: authData.token,
+      token: access,
       user: {
         id: authData.userId,
         email: authData.email,
@@ -126,10 +127,19 @@ export const authAPI = {
 
   // Login existing user
   login: async (credentials: LoginRequest): Promise<AuthResponse> => {
+    let deviceId = typeof window !== 'undefined' ? localStorage.getItem('codejam_device_id') : null;
+    if (typeof window !== 'undefined' && !deviceId) {
+      deviceId = crypto.randomUUID();
+      localStorage.setItem('codejam_device_id', deviceId);
+    }
+    if (!deviceId) {
+      deviceId = 'server-side-fallback';
+    }
     const response = await apiCall<AuthResponse>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify(credentials),
-    });
+      body: JSON.stringify({ ...credentials, deviceId }),
+      credentials: 'include',
+    } as RequestInit);
     
     if (!response.success || !response.data) {
       throw new ApiError(401, response.error || 'Invalid credentials');
@@ -137,8 +147,9 @@ export const authAPI = {
     
     // Transform response to match AuthResponse format
     const authData = response.data as any;
+    const access = authData.accessToken ?? authData.token;
     return {
-      token: authData.token,
+      token: access,
       user: {
         id: authData.userId,
         email: authData.email,
@@ -152,13 +163,22 @@ export const authAPI = {
   exchangeOAuthCode: async (code: string, codeVerifier: string): Promise<AuthResponse> => {
     console.log('[AUTH_DEBUG] API: exchangeOAuthCode called', { hasCode: !!code, hasCodeVerifier: !!codeVerifier });
     try {
-      const requestBody = { code, codeVerifier };
+      let deviceId = typeof window !== 'undefined' ? localStorage.getItem('codejam_device_id') : null;
+      if (typeof window !== 'undefined' && !deviceId) {
+        deviceId = crypto.randomUUID();
+        localStorage.setItem('codejam_device_id', deviceId);
+      }
+      if (!deviceId) {
+        deviceId = 'server-side-fallback';
+      }
+      const requestBody = { code, codeVerifier, deviceId };
       console.log('[AUTH_DEBUG] API: Making POST request to /auth/oauth/exchange');
       
       const response = await apiCall<AuthResponse>('/auth/oauth/exchange', {
         method: 'POST',
         body: JSON.stringify(requestBody),
-      });
+        credentials: 'include',
+      } as RequestInit);
       
       console.log('[AUTH_DEBUG] API: Response received', { success: response.success, hasData: !!response.data, error: response.error });
       
@@ -170,16 +190,16 @@ export const authAPI = {
       
       // Transform response to match AuthResponse format
       const oauthData = response.data as any;
-      console.log('[AUTH_DEBUG] API: OAuth data extracted', { hasToken: !!oauthData.token, hasUserId: !!oauthData.userId, hasEmail: !!oauthData.email });
+      const access = oauthData.accessToken ?? oauthData.token;
+      console.log('[AUTH_DEBUG] API: OAuth data extracted', { hasToken: !!access, hasUserId: !!oauthData.userId, hasEmail: !!oauthData.email });
       
-      // Validate required fields
-      if (!oauthData.token || !oauthData.userId || !oauthData.email) {
+      if (!access || !oauthData.userId || !oauthData.email) {
         console.error('[AUTH_DEBUG] API: Missing required fields');
         throw new ApiError(400, 'Invalid response from server: missing required fields');
       }
       
       const authResponse = {
-        token: oauthData.token,
+        token: access,
         user: {
           id: oauthData.userId,
           email: oauthData.email,
