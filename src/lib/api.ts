@@ -161,7 +161,6 @@ export const authAPI = {
 
   // Exchange OAuth code for token with PKCE validation
   exchangeOAuthCode: async (code: string, codeVerifier: string): Promise<AuthResponse> => {
-    console.log('[AUTH_DEBUG] API: exchangeOAuthCode called', { hasCode: !!code, hasCodeVerifier: !!codeVerifier });
     try {
       let deviceId = typeof window !== 'undefined' ? localStorage.getItem('codejam_device_id') : null;
       if (typeof window !== 'undefined' && !deviceId) {
@@ -172,33 +171,26 @@ export const authAPI = {
         deviceId = 'server-side-fallback';
       }
       const requestBody = { code, codeVerifier, deviceId };
-      console.log('[AUTH_DEBUG] API: Making POST request to /auth/oauth/exchange');
-      
+
       const response = await apiCall<AuthResponse>('/auth/oauth/exchange', {
         method: 'POST',
         body: JSON.stringify(requestBody),
         credentials: 'include',
       } as RequestInit);
-      
-      console.log('[AUTH_DEBUG] API: Response received', { success: response.success, hasData: !!response.data, error: response.error });
-      
+
       if (!response.success || !response.data) {
         const errorMsg = response.error || response.message || 'Failed to exchange OAuth code';
-        console.error('[AUTH_DEBUG] API: Exchange failed', { errorMsg, response });
         throw new ApiError(400, errorMsg);
       }
-      
-      // Transform response to match AuthResponse format
+
       const oauthData = response.data as any;
       const access = oauthData.accessToken ?? oauthData.token;
-      console.log('[AUTH_DEBUG] API: OAuth data extracted', { hasToken: !!access, hasUserId: !!oauthData.userId, hasEmail: !!oauthData.email });
-      
+
       if (!access || !oauthData.userId || !oauthData.email) {
-        console.error('[AUTH_DEBUG] API: Missing required fields');
         throw new ApiError(400, 'Invalid response from server: missing required fields');
       }
-      
-      const authResponse = {
+
+      return {
         token: access,
         user: {
           id: oauthData.userId,
@@ -207,15 +199,8 @@ export const authAPI = {
           avatar: oauthData.avatar,
         },
       };
-      
-      console.log('[AUTH_DEBUG] API: Exchange successful', { userEmail: authResponse.user.email, userId: authResponse.user.id });
-      return authResponse;
     } catch (error) {
-      if (error instanceof ApiError) {
-        console.error('[AUTH_DEBUG] API: ApiError thrown', { status: error.status, message: error.message });
-        throw error;
-      }
-      console.error('[AUTH_DEBUG] API: Unexpected error during exchange', error);
+      if (error instanceof ApiError) throw error;
       throw new ApiError(500, error instanceof Error ? error.message : 'Failed to exchange OAuth code');
     }
   },

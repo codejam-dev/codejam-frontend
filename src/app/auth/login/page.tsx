@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/auth.service';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 
 function LoginContent() {
   const router = useRouter();
@@ -91,8 +92,29 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black">
-      <div className="max-w-md w-full space-y-8 p-8 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-2xl border border-gray-700">
+    <div className="relative min-h-screen flex flex-col items-center justify-center bg-[#0a0a0f] px-4 py-12">
+      <div className="fixed inset-0 -z-10 pointer-events-none">
+        <motion.div
+          className="absolute inset-0 bg-gradient-to-br from-violet-900/20 via-transparent to-pink-900/20"
+          animate={{
+            background: [
+              'radial-gradient(circle at 0% 0%, rgba(139, 92, 246, 0.2) 0%, transparent 50%)',
+              'radial-gradient(circle at 100% 100%, rgba(236, 72, 153, 0.2) 0%, transparent 50%)',
+              'radial-gradient(circle at 0% 100%, rgba(6, 182, 212, 0.2) 0%, transparent 50%)',
+              'radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.2) 0%, transparent 50%)',
+            ],
+          }}
+          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+        />
+        <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:20px_20px]" />
+      </div>
+      <div className="relative z-0 w-full max-w-md">
+        <div className="w-full space-y-8 p-8 bg-zinc-900/60 backdrop-blur-md rounded-2xl border border-zinc-800/60 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+        <Link href="/" className="block text-center">
+          <span className="text-sm font-semibold bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent hover:from-violet-300 hover:to-pink-300">
+            CodeJam
+          </span>
+        </Link>
         <div>
           <h2 className="text-center text-3xl font-extrabold text-white">
             Welcome Back
@@ -113,7 +135,7 @@ function LoginContent() {
           <button
             type="button"
             onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-600 rounded-lg bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-md"
+            className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-zinc-700/60 rounded-lg bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0a0a0f] focus:ring-violet-500/40 transition-colors shadow-md"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -139,10 +161,10 @@ function LoginContent() {
 
         <div className="relative mt-6">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-600"></div>
+            <div className="w-full border-t border-zinc-700/60"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-gray-800 text-gray-400">Or sign in with email</span>
+            <span className="px-2 bg-zinc-900 text-gray-400">Or sign in with email</span>
           </div>
         </div>
 
@@ -160,7 +182,7 @@ function LoginContent() {
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-600 bg-gray-700 placeholder-gray-400 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-zinc-700/60 bg-zinc-800/80 placeholder-gray-400 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/50"
                 placeholder="you@example.com"
               />
             </div>
@@ -178,7 +200,7 @@ function LoginContent() {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className="appearance-none relative block w-full px-3 py-2 border border-gray-600 bg-gray-700 placeholder-gray-400 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="appearance-none relative block w-full px-3 py-2 border border-zinc-700/60 bg-zinc-800/80 placeholder-gray-400 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/50"
                   placeholder="Enter your password"
                 />
                 <button
@@ -194,7 +216,7 @@ function LoginContent() {
 
           <div className="flex items-center justify-between">
             <div className="text-sm">
-              <Link href="/auth/forgot-password" className="font-medium text-blue-400 hover:text-blue-300">
+              <Link href="/auth/forgot-password" className="font-medium text-violet-400 hover:text-violet-300">
                 Forgot password?
               </Link>
             </div>
@@ -204,7 +226,7 @@ function LoginContent() {
             <button
               type="submit"
               disabled={authState.loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0a0a0f] focus:ring-violet-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {authState.loading ? 'Signing in...' : 'Sign In'}
             </button>
@@ -212,11 +234,13 @@ function LoginContent() {
 
           <div className="text-center text-sm">
             <span className="text-gray-400">Don't have an account?</span>{' '}
-            <Link href="/auth/register" className="font-medium text-blue-400 hover:text-blue-300">
+            <Link href="/auth/register" className="font-medium text-violet-400 hover:text-violet-300">
               Sign up
             </Link>
           </div>
         </form>
+        </div>
+        <p className="mt-8 text-center text-xs text-zinc-600">© {new Date().getFullYear()} CodeJam</p>
       </div>
     </div>
   );
@@ -225,8 +249,9 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black">
-        <div className="text-white">Loading...</div>
+      <div className="relative min-h-screen flex items-center justify-center bg-[#0a0a0f]">
+        <div className="fixed inset-0 -z-10 pointer-events-none bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:20px_20px]" />
+        <div className="relative z-0 text-white">Loading...</div>
       </div>
     }>
       <LoginContent />

@@ -5,8 +5,6 @@ import {
   Users,
   Trophy,
   BookOpen,
-  History,
-  FileCode,
   Sparkles,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -23,44 +21,23 @@ const features: Feature[] = [
   {
     icon: Users,
     title: 'Real-Time Collaboration',
-    description: 'Code together with friends in real-time. See cursors, edits, and execute code simultaneously.',
+    description: 'Code together in shared rooms with live cursors, synchronized edits, and instant execution.',
     gradient: 'from-violet-500 to-purple-600',
     iconColor: '#8b5cf6',
   },
   {
-    icon: Trophy,
-    title: 'Leaderboards & Rankings',
-    description: 'Compete with developers worldwide. Track your progress and climb the ranks.',
-    gradient: 'from-yellow-500 to-orange-600',
-    iconColor: '#f59e0b',
-  },
-  {
     icon: BookOpen,
     title: 'Problem Library',
-    description: 'Curated collection of coding challenges across difficulty levels and topics.',
+    description: 'Curated coding challenges across difficulty levels and topics to sharpen your skills.',
     gradient: 'from-cyan-500 to-blue-600',
     iconColor: '#06b6d4',
   },
   {
-    icon: History,
-    title: 'Submission History',
-    description: 'Track your solutions, compare approaches, and review past submissions with detailed analytics.',
-    gradient: 'from-pink-500 to-rose-600',
-    iconColor: '#ec4899',
-  },
-  {
-    icon: FileCode,
-    title: 'Code Templates',
-    description: 'Quick-start templates for common algorithms and data structures in multiple languages.',
-    gradient: 'from-green-500 to-emerald-600',
-    iconColor: '#10b981',
-  },
-  {
-    icon: Sparkles,
-    title: 'AI Code Review',
-    description: 'Get instant feedback on your code quality, performance, and best practices.',
-    gradient: 'from-indigo-500 to-violet-600',
-    iconColor: '#6366f1',
+    icon: Trophy,
+    title: 'Leaderboards',
+    description: 'Compete with developers worldwide. Track progress and climb the ranks.',
+    gradient: 'from-yellow-500 to-orange-600',
+    iconColor: '#f59e0b',
   },
 ];
 
@@ -127,15 +104,18 @@ export default function ComingSoonFeatures() {
           transition={{ delay: 0.4, duration: 0.6 }}
         >
           <p className="text-gray-400 mb-4">
-            Want to be the first to know when these features launch?
+            Follow development and feature announcements on GitHub.
           </p>
-          <motion.button
-            className="px-6 py-3 bg-gradient-to-r from-violet-600 to-pink-600 rounded-lg font-semibold hover:shadow-lg hover:shadow-violet-500/50 transition-shadow"
+          <motion.a
+            href="https://github.com/codejam-dev"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-zinc-800/80 border border-zinc-700/60 rounded-lg font-semibold text-zinc-200 hover:bg-zinc-700/80 transition-colors"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            Get Notified
-          </motion.button>
+            Star on GitHub
+          </motion.a>
         </motion.div>
       </div>
     </motion.section>

@@ -24,6 +24,9 @@ interface MobileHeaderProps {
   isDarkTheme: boolean;
   onToggleTheme: () => void;
   onOpenHistory: () => void;
+  onDownload: () => void;
+  onShare: () => void;
+  onOpenSettings: () => void;
 }
 
 export default function MobileHeader({
@@ -33,6 +36,9 @@ export default function MobileHeader({
   isDarkTheme,
   onToggleTheme,
   onOpenHistory,
+  onDownload,
+  onShare,
+  onOpenSettings,
 }: MobileHeaderProps) {
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -206,15 +212,27 @@ export default function MobileHeader({
               className="absolute top-full right-0 mt-2 w-48 bg-gray-800/98 backdrop-blur-xl border border-gray-700/60 rounded-xl shadow-2xl overflow-hidden z-50"
             >
               <div className="py-2">
-                <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700/50 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => { onOpenSettings(); setShowMenu(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700/50 transition-colors"
+                >
                   <Settings className="w-4 h-4" />
                   <span className="text-sm">Settings</span>
                 </button>
-                <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700/50 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => { onDownload(); setShowMenu(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700/50 transition-colors"
+                >
                   <Download className="w-4 h-4" />
                   <span className="text-sm">Download</span>
                 </button>
-                <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700/50 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => { onShare(); setShowMenu(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700/50 transition-colors"
+                >
                   <Share2 className="w-4 h-4" />
                   <span className="text-sm">Share</span>
                 </button>

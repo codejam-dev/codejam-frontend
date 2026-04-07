@@ -67,7 +67,7 @@ export default function OutputPanel({
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             <ExecutionMetricsCards output={output} isExecuting={isExecuting} />
             <p className="px-3 pb-3 pt-1 text-center text-[10px] leading-relaxed text-zinc-600">
-              Preview · Collab — coming soon
+              Execution metrics
             </p>
           </div>
         </div>
