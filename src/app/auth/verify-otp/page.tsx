@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthService } from '@/services/auth.service';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 
 export default function VerifyOtpPage() {
   const router = useRouter();
@@ -108,8 +109,29 @@ export default function VerifyOtpPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black">
-      <div className="max-w-md w-full space-y-8 p-8 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-2xl border border-gray-700">
+    <div className="relative min-h-screen flex flex-col items-center justify-center bg-[#0a0a0f] px-4 py-12">
+      <div className="fixed inset-0 -z-10 pointer-events-none">
+        <motion.div
+          className="absolute inset-0 bg-gradient-to-br from-violet-900/20 via-transparent to-pink-900/20"
+          animate={{
+            background: [
+              'radial-gradient(circle at 0% 0%, rgba(139, 92, 246, 0.2) 0%, transparent 50%)',
+              'radial-gradient(circle at 100% 100%, rgba(236, 72, 153, 0.2) 0%, transparent 50%)',
+              'radial-gradient(circle at 0% 100%, rgba(6, 182, 212, 0.2) 0%, transparent 50%)',
+              'radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.2) 0%, transparent 50%)',
+            ],
+          }}
+          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+        />
+        <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:20px_20px]" />
+      </div>
+      <div className="relative z-0 w-full max-w-md">
+        <div className="w-full space-y-8 p-8 bg-zinc-900/60 backdrop-blur-md rounded-2xl border border-zinc-800/60 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+        <Link href="/" className="block text-center">
+          <span className="text-sm font-semibold bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent hover:from-violet-300 hover:to-pink-300">
+            CodeJam
+          </span>
+        </Link>
         <div>
           <h2 className="text-center text-3xl font-extrabold text-white">
             Verify Your Email
@@ -117,7 +139,7 @@ export default function VerifyOtpPage() {
           <p className="mt-2 text-center text-sm text-gray-400">
             We've sent a 6-digit code to
           </p>
-          <p className="text-center text-sm font-medium text-blue-400">{email}</p>
+          <p className="text-center text-sm font-medium text-violet-400">{email}</p>
         </div>
 
         {authState.error && (
@@ -141,7 +163,7 @@ export default function VerifyOtpPage() {
                   value={digit}
                   onChange={(e) => handleChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
-                  className="w-12 h-14 text-center text-2xl font-bold border border-gray-600 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-12 h-14 text-center text-2xl font-bold border border-zinc-700/60 bg-zinc-800/80 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/50"
                   autoComplete="off"
                 />
               ))}
@@ -152,7 +174,7 @@ export default function VerifyOtpPage() {
             <button
               type="submit"
               disabled={authState.loading || otp.join('').length !== 6}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0a0a0f] focus:ring-violet-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {authState.loading ? 'Verifying...' : 'Verify Email'}
             </button>
@@ -163,7 +185,7 @@ export default function VerifyOtpPage() {
               <button
                 type="button"
                 onClick={handleResend}
-                className="text-sm font-medium text-blue-400 hover:text-blue-300"
+                className="text-sm font-medium text-violet-400 hover:text-violet-300"
               >
                 Resend Code
               </button>
@@ -175,11 +197,13 @@ export default function VerifyOtpPage() {
           </div>
 
           <div className="text-center text-sm">
-            <Link href="/auth/register" className="font-medium text-gray-400 hover:text-gray-300">
+            <Link href="/auth/register" className="font-medium text-violet-400 hover:text-violet-300">
               ← Back to Registration
             </Link>
           </div>
         </form>
+        </div>
+        <p className="mt-8 text-center text-xs text-zinc-600">© {new Date().getFullYear()} CodeJam</p>
       </div>
     </div>
   );

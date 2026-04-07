@@ -40,6 +40,8 @@ import {
 } from '@/lib/language-templates';
 import { PlaygroundService } from '@/services/playground.service';
 import { useAuth } from '@/contexts/AuthContext';
+import { downloadCodeAsFile, buildShareUrl, copyToClipboard, parseShareParams } from '@/lib/playground-utils';
+import { MobileSettingsSheet } from '@/features/playground/components';
 
 export default function CodePlayground() {
   const { authState } = useAuth();
@@ -74,6 +76,8 @@ export default function CodePlayground() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [mobileRunRevealTick, setMobileRunRevealTick] = useState(0);
   const [outputAutoScrollTail, setOutputAutoScrollTail] = useState(true);
+  const [showMobileSettings, setShowMobileSettings] = useState(false);
+  const [shareToast, setShareToast] = useState(false);
 
   const languageDropdownRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -99,6 +103,23 @@ export default function CodePlayground() {
   }, [showLanguageDropdown, showMoreMenu]);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shared = parseShareParams(params);
+
+    if (shared) {
+      setState((prev) => ({
+        ...prev,
+        language: shared.language,
+        code: shared.code,
+        output: null,
+        error: null,
+      }));
+      PlaygroundService.saveLanguage(shared.language);
+      PlaygroundService.saveCode(shared.language, shared.code);
+      window.history.replaceState(null, '', window.location.pathname);
+      return;
+    }
+
     const savedLanguage = PlaygroundService.getSavedLanguage() || 'javascript';
     const savedCode = PlaygroundService.getSavedCode(savedLanguage);
     const savedSettings = PlaygroundService.getSavedSettings() || DEFAULT_EDITOR_SETTINGS;
@@ -222,6 +243,30 @@ export default function CodePlayground() {
   const handleOutputAutoScrollTailChange = useCallback((enabled: boolean) => {
     setOutputAutoScrollTail(enabled);
     PlaygroundService.saveOutputAutoScrollTail(enabled);
+  }, []);
+
+  const handleDownload = useCallback(() => {
+    const ext = LANGUAGE_TEMPLATES[state.language].extension;
+    const name = state.language === 'java'
+      ? `${(state.code.match(/public\s+class\s+(\w+)/)?.[1]) || 'Main'}${ext}`
+      : `main${ext}`;
+    downloadCodeAsFile(state.code, state.language, name);
+  }, [state.code, state.language]);
+
+  const handleShare = useCallback(async () => {
+    const url = buildShareUrl(state.code, state.language);
+    if (url) {
+      const ok = await copyToClipboard(url);
+      if (ok) {
+        setShareToast(true);
+        setTimeout(() => setShareToast(false), 2500);
+      }
+    }
+  }, [state.code, state.language]);
+
+  const handleSettingsChange = useCallback((newSettings: typeof state.settings) => {
+    setState((prev) => ({ ...prev, settings: newSettings }));
+    PlaygroundService.saveSettings(newSettings);
   }, []);
 
   const loadRunHistory = useCallback(async () => {
@@ -364,6 +409,9 @@ export default function CodePlayground() {
           isDarkTheme={isDarkTheme}
           onToggleTheme={toggleTheme}
           onOpenHistory={openMobileHistory}
+          onDownload={handleDownload}
+          onShare={handleShare}
+          onOpenSettings={() => setShowMobileSettings(true)}
         />
       )}
 
@@ -509,9 +557,22 @@ export default function CodePlayground() {
                         exit={{ opacity: 0, y: -4 }}
                         className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-lg border border-gray-700/60 bg-gray-900/98 py-1 shadow-xl"
                       >
-                        <p className="px-3 py-2 text-[10px] leading-snug text-gray-500">
-                          More actions (share, download, settings) will land here.
-                        </p>
+                        <button
+                          type="button"
+                          onClick={() => { handleDownload(); setShowMoreMenu(false); }}
+                          className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-300 hover:bg-gray-700/50 transition-colors"
+                        >
+                          <FileCode className="h-4 w-4" />
+                          Download
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { handleShare(); setShowMoreMenu(false); }}
+                          className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-300 hover:bg-gray-700/50 transition-colors"
+                        >
+                          <Search className="h-4 w-4" />
+                          Share Link
+                        </button>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -703,6 +764,28 @@ export default function CodePlayground() {
           onRestoreCode={handleRestoreFromHistory}
         />
       )}
+
+      {isMobile && (
+        <MobileSettingsSheet
+          isOpen={showMobileSettings}
+          onClose={() => setShowMobileSettings(false)}
+          settings={state.settings}
+          onSettingsChange={handleSettingsChange}
+        />
+      )}
+
+      <AnimatePresence>
+        {shareToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-6 left-1/2 z-[200] -translate-x-1/2 rounded-lg border border-violet-500/30 bg-zinc-900/95 px-4 py-2.5 text-sm text-violet-300 shadow-xl backdrop-blur-sm"
+          >
+            Share link copied to clipboard
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

@@ -1,11 +1,19 @@
 import type { Metadata } from 'next'
+import { JetBrains_Mono } from 'next/font/google'
+import { GeistSans } from 'geist/font/sans'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
-  title: 'CodeJam - Code Together, Ship Faster',
-  description: 'Real-time collaborative coding platform for developers who move fast. Share code, sync edits, and build together.',
-  keywords: ['collaborative coding', 'real-time', 'code sharing', 'pair programming', 'developer tools'],
+  title: 'CodeJam — Developer Playground & Coding Platform',
+  description: 'Write, execute, and share code instantly. Multi-language playground with Docker-sandboxed execution. Real-time collaboration coming soon.',
+  keywords: ['code playground', 'online IDE', 'code execution', 'developer tools', 'collaborative coding'],
   authors: [{ name: 'CodeJam' }],
   icons: {
     icon: [
@@ -19,8 +27,8 @@ export const metadata: Metadata = {
   },
   manifest: '/site.webmanifest',
   openGraph: {
-    title: 'CodeJam - Code Together, Ship Faster',
-    description: 'Real-time collaborative coding platform for developers who move fast.',
+    title: 'CodeJam — Developer Playground & Coding Platform',
+    description: 'Write, execute, and share code instantly. Multi-language playground with Docker-sandboxed execution.',
     type: 'website',
   },
 }
@@ -31,8 +39,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className="antialiased">
+    <html lang="en" className={`${GeistSans.variable} ${jetbrainsMono.variable}`}>
+      <body className="font-sans antialiased">
         <AuthProvider>
           {children}
         </AuthProvider>

@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
-/* Custom breakpoint for extra small screens */
 @theme {
   --breakpoint-xs: 480px;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
 }
 
 @layer base {

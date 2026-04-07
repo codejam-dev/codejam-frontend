@@ -104,13 +104,34 @@ function ResetPasswordContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
+    <div className="relative min-h-screen flex flex-col items-center justify-center bg-[#0a0a0f] p-4">
+      <div className="fixed inset-0 -z-10 pointer-events-none">
+        <motion.div
+          className="absolute inset-0 bg-gradient-to-br from-violet-900/20 via-transparent to-pink-900/20"
+          animate={{
+            background: [
+              'radial-gradient(circle at 0% 0%, rgba(139, 92, 246, 0.2) 0%, transparent 50%)',
+              'radial-gradient(circle at 100% 100%, rgba(236, 72, 153, 0.2) 0%, transparent 50%)',
+              'radial-gradient(circle at 0% 100%, rgba(6, 182, 212, 0.2) 0%, transparent 50%)',
+              'radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.2) 0%, transparent 50%)',
+            ],
+          }}
+          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+        />
+        <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:20px_20px]" />
+      </div>
+      <div className="relative z-0 w-full max-w-md">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="max-w-md w-full space-y-8 p-8 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-2xl border border-gray-700"
+        className="w-full space-y-8 p-8 bg-zinc-900/60 backdrop-blur-md rounded-2xl border border-zinc-800/60 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
       >
+        <Link href="/" className="block text-center">
+          <span className="text-sm font-semibold bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent hover:from-violet-300 hover:to-pink-300">
+            CodeJam
+          </span>
+        </Link>
         {/* Back Button */}
         <Link
           href="/auth/forgot-password"
@@ -185,7 +206,7 @@ function ResetPasswordContent() {
                         setPasswordErrors(validatePassword(e.target.value));
                         setError('');
                       }}
-                      className="appearance-none block w-full pl-10 pr-10 py-3 border border-gray-600 bg-gray-700 placeholder-gray-400 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                      className="appearance-none block w-full pl-10 pr-10 py-3 border border-zinc-700/60 bg-zinc-800/80 placeholder-gray-400 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/50 transition-all"
                       placeholder="Enter new password"
                       minLength={8}
                     />
@@ -223,7 +244,7 @@ function ResetPasswordContent() {
                         setConfirmPassword(e.target.value);
                         setError('');
                       }}
-                      className="appearance-none block w-full pl-10 pr-10 py-3 border border-gray-600 bg-gray-700 placeholder-gray-400 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                      className="appearance-none block w-full pl-10 pr-10 py-3 border border-zinc-700/60 bg-zinc-800/80 placeholder-gray-400 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/50 transition-all"
                       placeholder="Confirm new password"
                       minLength={8}
                     />
@@ -242,7 +263,7 @@ function ResetPasswordContent() {
                 </div>
 
                 {/* Password Requirements */}
-                <div className="bg-gray-700/30 border border-gray-600 rounded-lg p-3">
+                <div className="bg-zinc-800/40 border border-zinc-700/60 rounded-lg p-3">
                   <p className="text-xs font-medium text-gray-300 mb-2">Password must contain:</p>
                   <ul className="text-xs space-y-1">
                     {[
@@ -263,7 +284,7 @@ function ResetPasswordContent() {
                 <button
                   type="submit"
                   disabled={isLoading || passwordErrors.length > 0}
-                  className="group relative w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-violet-500/25"
+                  className="group relative w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0a0a0f] focus:ring-violet-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   {isLoading ? (
                     <>
@@ -282,10 +303,10 @@ function ResetPasswordContent() {
               {/* Divider */}
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-600"></div>
+                  <div className="w-full border-t border-zinc-700/60"></div>
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-gray-800/50 text-gray-400">
+                  <span className="px-2 bg-zinc-900 text-gray-400">
                     Remember your password?
                   </span>
                 </div>
@@ -344,16 +365,18 @@ function ResetPasswordContent() {
 
         {/* Help Text */}
         {!isSuccess && (
-          <div className="pt-6 border-t border-gray-700">
+          <div className="pt-6 border-t border-zinc-800/60">
             <p className="text-xs text-center text-gray-500">
               Need help?{' '}
-              <Link href="/support" className="text-violet-400 hover:text-violet-300">
-                Contact support
-              </Link>
+              <a href="https://github.com/codejam-dev/codejam-backend/issues" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300">
+                Report an issue
+              </a>
             </p>
           </div>
         )}
       </motion.div>
+      <p className="mt-8 text-center text-xs text-zinc-600">© {new Date().getFullYear()} CodeJam</p>
+      </div>
     </div>
   );
 }
@@ -361,8 +384,9 @@ function ResetPasswordContent() {
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black">
-        <div className="text-white">Loading...</div>
+      <div className="relative min-h-screen flex items-center justify-center bg-[#0a0a0f]">
+        <div className="fixed inset-0 -z-10 pointer-events-none bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:20px_20px]" />
+        <div className="relative z-0 text-white">Loading...</div>
       </div>
     }>
       <ResetPasswordContent />
