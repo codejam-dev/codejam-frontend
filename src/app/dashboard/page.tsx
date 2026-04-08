@@ -6,7 +6,6 @@ import { motion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import NavBar from '@/components/NavBar';
 import { PlaygroundService } from '@/services/playground.service';
 import { RunHistoryItem } from '@/types/playground.types';
 import { RecentRuns } from '@/components/dashboard/RecentRuns';
@@ -67,8 +66,6 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] font-sans text-zinc-100">
-      <NavBar />
-
       <main className="mx-auto max-w-6xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
         <motion.header
           initial={{ opacity: 0, y: -12 }}

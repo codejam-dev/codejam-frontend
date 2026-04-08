@@ -4,7 +4,6 @@ import { motion } from 'framer-motion'
 import { Github, ExternalLink } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import NavBar from '@/components/NavBar'
 import ComingSoonFeatures from '@/components/ComingSoonFeatures'
 import {
   FibonacciCodeMockup,
@@ -46,8 +45,6 @@ export default function Home() {
         />
         <div className="absolute inset-0 bg-[radial-gradient(#ffffff15_1px,transparent_1px)] [background-size:20px_20px]" />
       </div>
-
-      <NavBar />
 
       <section className="relative min-h-screen flex items-center justify-center px-6 py-24">
         <div className="max-w-6xl mx-auto text-center">

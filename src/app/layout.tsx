@@ -3,6 +3,7 @@ import { JetBrains_Mono } from 'next/font/google'
 import { GeistSans } from 'geist/font/sans'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
+import AppNavBar from '@/components/AppNavBar'
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
@@ -42,6 +43,7 @@ export default function RootLayout({
     <html lang="en" className={`${GeistSans.variable} ${jetbrainsMono.variable}`}>
       <body className="font-sans antialiased">
         <AuthProvider>
+          <AppNavBar />
           {children}
         </AuthProvider>
       </body>
