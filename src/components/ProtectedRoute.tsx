@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { captureAuthReturnTo } from '@/lib/auth-return-to';
 import { AuthService } from '@/services/auth.service';
 
 interface ProtectedRouteProps {
@@ -20,16 +21,18 @@ export function ProtectedRoute({ children, redirectTo = '/auth/login' }: Protect
         // Check if user has temp token (unverified user)
         const tempToken = AuthService.getTempToken();
         const pendingEmail = AuthService.getPendingEmail();
-        
+
         if (tempToken && pendingEmail) {
           // User has temp token, redirect to OTP verification
+          captureAuthReturnTo();
           router.push('/auth/verify-otp');
         } else {
           // No auth, redirect to login
+          captureAuthReturnTo();
           router.push(redirectTo);
         }
       } else if (authState.user && !authState.user.isEnabled) {
-        // User is authenticated but not enabled, redirect to OTP verification
+        captureAuthReturnTo();
         router.push('/auth/verify-otp');
       }
     }

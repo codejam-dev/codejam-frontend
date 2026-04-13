@@ -4,7 +4,7 @@
  */
 
 import { ApiClient } from '@/lib/api-client';
-import { API_ENDPOINTS, STORAGE_KEYS } from '@/lib/config';
+import { API_CONFIG, API_ENDPOINTS, STORAGE_KEYS } from '@/lib/config';
 import {
   CodeExecutionRequest,
   CodeExecutionResponse,
@@ -42,125 +42,198 @@ export interface ConsoleWorkspaceUi {
   activeTab: ConsoleWorkspaceTab;
 }
 
+const LANGUAGE_TO_BACKEND: Record<SupportedLanguage, string> = {
+  javascript: 'JAVASCRIPT',
+  python: 'PYTHON',
+  java: 'JAVA',
+  cpp: 'CPP',
+  c: 'C',
+  go: 'GO',
+  rust: 'RUST',
+};
+
+/** How often to poll the backend for execution status. */
+const POLL_INTERVAL_MS = 350;
+
+/** Maximum total time to wait for a run to finish (~60 s). */
+const POLL_TIMEOUT_MS = 60_000;
+
+/** Derived: max poll iterations before giving up. */
+const MAX_POLL_ITERATIONS = Math.ceil(POLL_TIMEOUT_MS / POLL_INTERVAL_MS);
+
+function buildExecutionPayload(request: CodeExecutionRequest) {
+  return {
+    roomId: 'playground',
+    language: LANGUAGE_TO_BACKEND[request.language] || 'JAVASCRIPT',
+    code: request.code,
+  };
+}
+
+function mapBackendExecutionResult(result: Record<string, unknown>): CodeExecutionResponse {
+  const status = result.status as string | undefined;
+  return {
+    stdout: (result.stdout as string) || '',
+    stderr: (result.stderr as string) || (result.errorMessage as string) || '',
+    exitCode:
+      (result.exitCode as number) ?? (status === 'SUCCESS' ? 0 : 1),
+    executionTime: (result.executionTimeMs as number) || 0,
+    error:
+      status === 'SYSTEM_ERROR' || status === 'TIMEOUT'
+        ? ((result.errorMessage as string) || status)
+        : undefined,
+  };
+}
+
+export interface CancellableExecuteSession {
+  /** Ask the server to stop the sandbox (best-effort). */
+  cancel: () => Promise<void>;
+  done: Promise<CodeExecutionResponse>;
+}
+
 export class PlaygroundService {
   /**
-   * Execute code in the playground
-   * @param request - Code execution request
-   * @param token - Optional auth token (if not provided, will try to get from localStorage)
+   * Async execution with {@link CancellableExecuteSession.cancel} so the user can stop a long run.
+   */
+  static beginCancellableExecute(
+    request: CodeExecutionRequest,
+    token?: string | null
+  ): CancellableExecuteSession {
+    let runId: string | null = null;
+    let cancelled = false;
+    const backendRequest = buildExecutionPayload(request);
+
+    const cancel = async () => {
+      cancelled = true;
+      if (!runId) return;
+      let authToken = token !== undefined ? token : await this.ensureFreshAccessToken();
+      if (!authToken || this.isTokenExpired(authToken)) return;
+      try {
+        await fetch(`${API_CONFIG.BASE_URL}/v1/api/execution/runs/${runId}/cancel`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+      } catch {
+        /* best-effort */
+      }
+    };
+
+    const done = (async (): Promise<CodeExecutionResponse> => {
+      try {
+        let authToken = token !== undefined ? token : await this.ensureFreshAccessToken();
+        if (!authToken || this.isTokenExpired(authToken)) {
+          this.handleSessionExpired();
+          return { stdout: '', stderr: '', exitCode: 0, executionTime: 0 };
+        }
+
+        const postStart = async (t: string) => {
+          const headers: HeadersInit = {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${t}`,
+          };
+          return fetch(API_ENDPOINTS.PLAYGROUND.RUN_START, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(backendRequest),
+          });
+        };
+
+        let startResponse = await postStart(authToken);
+        if (startResponse.status === 401) {
+          const recovered = await ApiClient.trySilentRefresh();
+          if (recovered) {
+            const retryToken = this.getAuthToken();
+            if (retryToken && !this.isTokenExpired(retryToken)) {
+              startResponse = await postStart(retryToken);
+              authToken = retryToken;
+            }
+          }
+        }
+
+        if (!startResponse.ok) {
+          if (startResponse.status === 401) {
+            this.handleSessionExpired();
+            return { stdout: '', stderr: '', exitCode: 0, executionTime: 0 };
+          }
+          const errorData = await startResponse.json().catch(() => ({}));
+          const msg =
+            (errorData as { message?: string }).message ||
+            `HTTP ${startResponse.status}: ${startResponse.statusText}`;
+          throw new Error(msg);
+        }
+
+        const accepted = (await startResponse.json()) as { runId?: string };
+        runId = accepted.runId ?? null;
+        if (!runId) {
+          throw new Error('Server did not return runId');
+        }
+
+        const statusUrl = `${API_CONFIG.BASE_URL}/v1/api/execution/runs/${runId}`;
+        const authHeaders = { Authorization: `Bearer ${authToken}` };
+
+        for (let i = 0; i < MAX_POLL_ITERATIONS; i++) {
+          if (cancelled) {
+            return {
+              stdout: '',
+              stderr: 'Execution cancelled by user.',
+              exitCode: 1,
+              executionTime: 0,
+              error: 'CANCELLED',
+            };
+          }
+          if (i > 0) {
+            await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+          }
+          const st = await fetch(statusUrl, { headers: authHeaders });
+          if (!st.ok) continue;
+          const data = (await st.json()) as {
+            phase?: string;
+            result?: Record<string, unknown>;
+            message?: string;
+          };
+          if (data.phase === 'RUNNING') continue;
+          if (data.phase === 'FAILED') {
+            return {
+              stdout: '',
+              stderr: data.message || 'Run failed',
+              exitCode: 1,
+              executionTime: 0,
+              error: data.message,
+            };
+          }
+          if (data.phase === 'COMPLETED' && data.result) {
+            return mapBackendExecutionResult(data.result);
+          }
+        }
+        return {
+          stdout: '',
+          stderr: 'Timed out waiting for execution status.',
+          exitCode: 1,
+          executionTime: 0,
+          error: 'Poll timeout',
+        };
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Failed to execute code';
+        return {
+          stdout: '',
+          stderr: message,
+          exitCode: 1,
+          executionTime: 0,
+          error: message,
+        };
+      }
+    })();
+
+    return { cancel, done };
+  }
+
+  /**
+   * Execute code in the playground (uses cancellable async API; no handle returned).
    */
   static async executeCode(
     request: CodeExecutionRequest,
     token?: string | null
   ): Promise<CodeExecutionResponse> {
-    try {
-      // Map frontend language to backend enum format
-      const languageMap: Record<SupportedLanguage, string> = {
-        javascript: 'JAVASCRIPT',
-        python: 'PYTHON',
-        java: 'JAVA',
-        cpp: 'CPP',
-        c: 'C',
-        go: 'GO',
-        rust: 'RUST',
-      };
-
-      // Prepare backend request
-      const backendRequest = {
-        roomId: 'playground', // Default room ID for playground
-        language: languageMap[request.language] || 'JAVASCRIPT',
-        code: request.code,
-      };
-
-      let authToken = token !== undefined ? token : await this.ensureFreshAccessToken();
-
-      if (!authToken || this.isTokenExpired(authToken)) {
-        this.handleSessionExpired();
-        return {
-          stdout: '',
-          stderr: '',
-          exitCode: 0,
-          executionTime: 0,
-        };
-      }
-
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
-      };
-
-      // Call the execution API
-      const response = await fetch(API_ENDPOINTS.PLAYGROUND.EXECUTE, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(backendRequest),
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          const recovered = await ApiClient.trySilentRefresh();
-          if (recovered) {
-            const retryToken = this.getAuthToken();
-            if (retryToken && !this.isTokenExpired(retryToken)) {
-              const retry = await fetch(API_ENDPOINTS.PLAYGROUND.EXECUTE, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${retryToken}`,
-                },
-                body: JSON.stringify(backendRequest),
-              });
-              if (retry.ok) {
-                const result = await retry.json();
-                return {
-                  stdout: result.stdout || '',
-                  stderr: result.stderr || result.errorMessage || '',
-                  exitCode: result.exitCode ?? (result.status === 'SUCCESS' ? 0 : 1),
-                  executionTime: result.executionTimeMs || 0,
-                  error:
-                    result.status === 'SYSTEM_ERROR' || result.status === 'TIMEOUT'
-                      ? result.errorMessage || result.status
-                      : undefined,
-                };
-              }
-            }
-          }
-          this.handleSessionExpired();
-          return {
-            stdout: '',
-            stderr: '',
-            exitCode: 0,
-            executionTime: 0,
-          };
-        }
-
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.message || `HTTP ${response.status}: ${response.statusText}`;
-        throw new Error(errorMessage);
-      }
-
-      // Backend returns ExecutionResult directly (not wrapped)
-      const result = await response.json();
-
-      // Map backend response to frontend format
-      return {
-        stdout: result.stdout || '',
-        stderr: result.stderr || result.errorMessage || '',
-        exitCode: result.exitCode ?? (result.status === 'SUCCESS' ? 0 : 1),
-        executionTime: result.executionTimeMs || 0,
-        error: result.status === 'SYSTEM_ERROR' || result.status === 'TIMEOUT' 
-          ? (result.errorMessage || result.status) 
-          : undefined,
-      };
-    } catch (error: any) {
-      // Return error response in the expected format
-      return {
-        stdout: '',
-        stderr: error.message || 'Failed to execute code',
-        exitCode: 1,
-        executionTime: 0,
-        error: error.message || 'Unknown error occurred',
-      };
-    }
+    return this.beginCancellableExecute(request, token).done;
   }
 
   /**

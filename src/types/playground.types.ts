@@ -72,7 +72,7 @@ export interface EditorStats {
 }
 
 /** Backend execution status */
-export type RunStatus = 'SUCCESS' | 'ERROR' | 'TIMEOUT' | 'SYSTEM_ERROR';
+export type RunStatus = 'SUCCESS' | 'ERROR' | 'TIMEOUT' | 'SYSTEM_ERROR' | 'CANCELLED';
 
 export interface RunHistoryItem {
   id: number;

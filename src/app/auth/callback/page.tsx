@@ -3,6 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { consumeAuthReturnTo } from '@/lib/auth-return-to';
 
 function OAuthCallbackContent() {
   const router = useRouter();
@@ -40,7 +41,8 @@ function OAuthCallbackContent() {
         await exchangeOAuthCode(code);
         setStatus('success');
         setTimeout(() => {
-          router.push('/playground');
+          const returnTo = consumeAuthReturnTo();
+          router.push(returnTo ?? '/playground');
         }, 1000);
       } catch (err) {
         setStatus('error');
