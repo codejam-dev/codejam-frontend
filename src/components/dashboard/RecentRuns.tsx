@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Clock } from 'lucide-react';
 import { RunHistoryItem, RunStatus } from '@/types/playground.types';
-import { LANGUAGE_TEMPLATES } from '@/lib/language-templates';
-import { runHistoryLanguage } from '@/components/RunHistoryPanel';
+import { languageConfigForHistory } from '@/lib/language-templates';
 
 function formatTimeAgo(iso: string): string {
   try {
@@ -116,8 +115,7 @@ export function RecentRuns({ runs, loading }: RecentRunsProps) {
       ) : (
         <ul className="space-y-2">
           {recent.map((run, index) => {
-            const langKey = runHistoryLanguage(run.language);
-            const cfg = LANGUAGE_TEMPLATES[langKey];
+            const cfg = languageConfigForHistory(run.language);
             const Icon = cfg.icon;
             const preview =
               run.code?.replace(/\s+/g, ' ').trim().slice(0, 60) ||

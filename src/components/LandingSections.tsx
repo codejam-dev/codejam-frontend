@@ -30,7 +30,7 @@ export const LIVE_FEATURES: LiveFeature[] = [
     icon: Terminal,
     title: 'Multi-language execution',
     description:
-      'Run JavaScript, Python, Java, C, C++, Go, and Rust in isolated Docker sandboxes.',
+      'Run JavaScript, Python, and Java in isolated Docker sandboxes. More runtimes planned.',
     color: 'from-violet-400 to-purple-500',
   },
   {

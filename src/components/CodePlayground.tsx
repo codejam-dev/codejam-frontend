@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import CodeEditor, { type CodeEditorHandle } from './CodeEditor';
 import OutputPanel from './OutputPanel';
-import RunHistoryPanel, { runHistoryLanguage, RunHistoryTabContent } from './RunHistoryPanel';
+import RunHistoryPanel, { RunHistoryTabContent } from './RunHistoryPanel';
 import {
   ConsoleMessage,
   FloatingRunButton,
@@ -36,8 +36,10 @@ import {
 import {
   LANGUAGE_TEMPLATES,
   DEFAULT_EDITOR_SETTINGS,
-  SUPPORTED_LANGUAGES,
+  EXECUTABLE_LANGUAGES,
   getDefaultCode,
+  coerceExecutableLanguage,
+  executableLanguageFromHistory,
 } from '@/lib/language-templates';
 import { PlaygroundService, type CancellableExecuteSession } from '@/services/playground.service';
 import { useAuth } from '@/contexts/AuthContext';
@@ -109,20 +111,23 @@ export default function CodePlayground() {
     const shared = parseShareParams(params);
 
     if (shared) {
+      const language = coerceExecutableLanguage(shared.language);
       setState((prev) => ({
         ...prev,
-        language: shared.language,
+        language,
         code: shared.code,
         output: null,
         error: null,
       }));
-      PlaygroundService.saveLanguage(shared.language);
-      PlaygroundService.saveCode(shared.language, shared.code);
+      PlaygroundService.saveLanguage(language);
+      PlaygroundService.saveCode(language, shared.code);
       window.history.replaceState(null, '', window.location.pathname);
       return;
     }
 
-    const savedLanguage = PlaygroundService.getSavedLanguage() || 'javascript';
+    const savedLanguage = coerceExecutableLanguage(
+      PlaygroundService.getSavedLanguage()
+    );
     const savedCode = PlaygroundService.getSavedCode(savedLanguage);
     const savedSettings = PlaygroundService.getSavedSettings() || DEFAULT_EDITOR_SETTINGS;
     const consoleUi = PlaygroundService.getConsoleWorkspaceUi();
@@ -295,7 +300,7 @@ export default function CodePlayground() {
   }, [authState.token]);
 
   const handleRestoreFromHistory = useCallback((run: RunHistoryItem) => {
-    const lang = runHistoryLanguage(run.language);
+    const lang = executableLanguageFromHistory(run.language);
     setState((prev) => ({
       ...prev,
       language: lang,
@@ -374,7 +379,7 @@ export default function CodePlayground() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="py-1.5">
-              {SUPPORTED_LANGUAGES.map((lang) => {
+              {EXECUTABLE_LANGUAGES.map((lang) => {
                 const langConfig = LANGUAGE_TEMPLATES[lang];
                 const isActive = state.language === lang;
                 return (

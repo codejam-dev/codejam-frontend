@@ -4,14 +4,11 @@
 
 import type { SupportedLanguage } from '@/types/playground.types';
 
+/** Share URLs and persisted `lang=` must match executor-supported languages only. */
 const SUPPORTED_LANGUAGES: readonly SupportedLanguage[] = [
   'javascript',
   'python',
   'java',
-  'cpp',
-  'c',
-  'go',
-  'rust',
 ];
 
 function isSupportedLanguage(value: string): value is SupportedLanguage {

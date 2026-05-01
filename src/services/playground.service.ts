@@ -46,10 +46,6 @@ const LANGUAGE_TO_BACKEND: Record<SupportedLanguage, string> = {
   javascript: 'JAVASCRIPT',
   python: 'PYTHON',
   java: 'JAVA',
-  cpp: 'CPP',
-  c: 'C',
-  go: 'GO',
-  rust: 'RUST',
 };
 
 /** How often to poll the backend for execution status. */
@@ -64,7 +60,7 @@ const MAX_POLL_ITERATIONS = Math.ceil(POLL_TIMEOUT_MS / POLL_INTERVAL_MS);
 function buildExecutionPayload(request: CodeExecutionRequest) {
   return {
     roomId: 'playground',
-    language: LANGUAGE_TO_BACKEND[request.language] || 'JAVASCRIPT',
+    language: LANGUAGE_TO_BACKEND[request.language],
     code: request.code,
   };
 }
@@ -377,10 +373,6 @@ export class PlaygroundService {
       javascript: 'Hello, CodeJam!\nFibonacci(10): 55',
       python: 'Hello, CodeJam!\nFibonacci(10): 55\nSquares: [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]',
       java: 'Hello, CodeJam!\nFibonacci(10): 55',
-      cpp: 'Hello, CodeJam!\nFibonacci(10): 55\nNumbers: 1 2 3 4 5',
-      c: 'Hello, CodeJam!\nFibonacci(10): 55\nNumbers: 1 2 3 4 5',
-      go: 'Hello, CodeJam!\nFibonacci(10): 55\nNumbers: [1 2 3 4 5]',
-      rust: 'Hello, CodeJam!\nFibonacci(10): 55\nNumbers: [1, 2, 3, 4, 5]\nSum: 15',
     };
 
     // Check for common errors in code

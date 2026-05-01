@@ -3,8 +3,8 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3 } from 'lucide-react';
-import { RunHistoryItem, SupportedLanguage } from '@/types/playground.types';
-import { LANGUAGE_TEMPLATES, SUPPORTED_LANGUAGES } from '@/lib/language-templates';
+import { RunHistoryItem, HistoryDisplayLanguage } from '@/types/playground.types';
+import { languageConfigForHistory } from '@/lib/language-templates';
 import { runHistoryLanguage } from '@/components/RunHistoryPanel';
 
 function deriveStats(runs: RunHistoryItem[]) {
@@ -12,12 +12,12 @@ function deriveStats(runs: RunHistoryItem[]) {
   if (totalRuns === 0) {
     return {
       totalRuns: 0,
-      mostUsedKey: null as SupportedLanguage | null,
+      mostUsedKey: null as HistoryDisplayLanguage | null,
       successRate: null as number | null,
     };
   }
 
-  const counts: Partial<Record<SupportedLanguage, number>> = {};
+  const counts: Partial<Record<HistoryDisplayLanguage, number>> = {};
   let successes = 0;
   for (const run of runs) {
     const key = runHistoryLanguage(run.language);
@@ -25,13 +25,12 @@ function deriveStats(runs: RunHistoryItem[]) {
     if (run.status === 'SUCCESS') successes += 1;
   }
 
-  let mostUsedKey: SupportedLanguage | null = null;
+  let mostUsedKey: HistoryDisplayLanguage | null = null;
   let max = 0;
-  for (const lang of SUPPORTED_LANGUAGES) {
-    const n = counts[lang] ?? 0;
+  for (const [lang, n] of Object.entries(counts)) {
     if (n > max) {
       max = n;
-      mostUsedKey = lang;
+      mostUsedKey = lang as HistoryDisplayLanguage;
     }
   }
 
@@ -68,7 +67,7 @@ export function QuickStats({ runs, loading }: QuickStatsProps) {
     [runs]
   );
 
-  const mostCfg = mostUsedKey ? LANGUAGE_TEMPLATES[mostUsedKey] : null;
+  const mostCfg = mostUsedKey ? languageConfigForHistory(mostUsedKey) : null;
   const MostIcon = mostCfg?.icon;
 
   return (
