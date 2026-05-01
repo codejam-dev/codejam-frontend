@@ -62,15 +62,24 @@ export default function AppNavBar() {
   }, [pathname]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowUserDropdown(false);
-      }
-    };
-    if (showUserDropdown) {
+    if (!showUserDropdown) return;
+
+    // Defer so the same click that opened the menu does not count as "outside" and close it immediately.
+    let removeListener: (() => void) | undefined;
+    const attachId = window.setTimeout(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+          setShowUserDropdown(false);
+        }
+      };
       document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+      removeListener = () => document.removeEventListener('mousedown', handleClickOutside);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(attachId);
+      removeListener?.();
+    };
   }, [showUserDropdown]);
 
   const handleLogout = async () => {
@@ -163,7 +172,7 @@ export default function AppNavBar() {
 
   return (
     <motion.nav
-      layout
+      layout={!isCompact}
       initial={shouldAnimate && !isCompact ? { y: -100, opacity: 0 } : false}
       animate={{ y: 0, opacity: 1 }}
       transition={
@@ -171,15 +180,15 @@ export default function AppNavBar() {
           ? { duration: 0.5, layout: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } }
           : { duration: 0, layout: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } }
       }
-      className={`z-[100] border-b border-white/10 backdrop-blur-lg ${
+      className={`sticky top-0 z-[500] overflow-visible border-b border-white/10 backdrop-blur-lg ${
         isCompact
           ? 'flex h-10 shrink-0 items-center justify-between bg-[#0a0a0f]/95 px-4'
-          : 'sticky top-0 px-6 py-4 bg-[#0a0a0f]/80'
+          : 'px-6 py-4 bg-[#0a0a0f]/80'
       }`}
     >
       <div className={isCompact
-        ? 'flex w-full items-center justify-between'
-        : 'max-w-7xl mx-auto relative flex justify-between items-center'
+        ? 'relative flex w-full items-center justify-between overflow-visible'
+        : 'max-w-7xl mx-auto relative flex justify-between items-center overflow-visible'
       }>
         {/* Logo */}
         <div className="flex items-center gap-3 z-10">

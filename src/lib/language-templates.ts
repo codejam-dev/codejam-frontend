@@ -1,17 +1,28 @@
 /**
- * Language Templates and Configurations
+ * Language templates and playground vs history-only configs.
  */
 
-import { LanguageConfig, SupportedLanguage } from '@/types/playground.types';
+import {
+  LanguageConfig,
+  SupportedLanguage,
+  HistoryDisplayLanguage,
+} from '@/types/playground.types';
 import {
   SiJavascript,
   SiPython,
   SiCplusplus,
   SiC,
   SiGo,
-  SiRust
+  SiRust,
 } from 'react-icons/si';
 import { FaJava } from 'react-icons/fa';
+
+/** Executor-backed languages shown in the playground picker. */
+export const EXECUTABLE_LANGUAGES: SupportedLanguage[] = [
+  'javascript',
+  'python',
+  'java',
+];
 
 export const LANGUAGE_TEMPLATES: Record<SupportedLanguage, LanguageConfig> = {
   javascript: {
@@ -80,6 +91,13 @@ public class Main {
 }
 `,
   },
+};
+
+/** Styling for old runs only — not offered in the runner until backend images ship. */
+const LEGACY_LANGUAGE_TEMPLATES: Record<
+  Exclude<HistoryDisplayLanguage, SupportedLanguage>,
+  LanguageConfig
+> = {
   cpp: {
     id: 'cpp',
     name: 'C++',
@@ -87,33 +105,7 @@ public class Main {
     extension: '.cpp',
     icon: SiCplusplus,
     iconColor: '#00599C',
-    defaultCode: `// C++ Playground
-#include <iostream>
-#include <vector>
-using namespace std;
-
-int fibonacci(int n) {
-    if (n <= 1) return n;
-    return fibonacci(n - 1) + fibonacci(n - 2);
-}
-
-int main() {
-    cout << "Hello, CodeJam!" << endl;
-
-    // Your code here
-    cout << "Fibonacci(10): " << fibonacci(10) << endl;
-
-    // Vector example
-    vector<int> numbers = {1, 2, 3, 4, 5};
-    cout << "Numbers: ";
-    for (int num : numbers) {
-        cout << num << " ";
-    }
-    cout << endl;
-
-    return 0;
-}
-`,
+    defaultCode: '',
   },
   c: {
     id: 'c',
@@ -122,33 +114,7 @@ int main() {
     extension: '.c',
     icon: SiC,
     iconColor: '#A8B9CC',
-    defaultCode: `// C Playground
-#include <stdio.h>
-
-int fibonacci(int n) {
-    if (n <= 1) return n;
-    return fibonacci(n - 1) + fibonacci(n - 2);
-}
-
-int main() {
-    printf("Hello, CodeJam!\\n");
-
-    // Your code here
-    printf("Fibonacci(10): %d\\n", fibonacci(10));
-
-    // Array example
-    int numbers[] = {1, 2, 3, 4, 5};
-    int size = sizeof(numbers) / sizeof(numbers[0]);
-
-    printf("Numbers: ");
-    for (int i = 0; i < size; i++) {
-        printf("%d ", numbers[i]);
-    }
-    printf("\\n");
-
-    return 0;
-}
-`,
+    defaultCode: '',
   },
   go: {
     id: 'go',
@@ -157,29 +123,7 @@ int main() {
     extension: '.go',
     icon: SiGo,
     iconColor: '#00ADD8',
-    defaultCode: `// Go Playground
-package main
-
-import "fmt"
-
-func fibonacci(n int) int {
-    if n <= 1 {
-        return n
-    }
-    return fibonacci(n-1) + fibonacci(n-2)
-}
-
-func main() {
-    fmt.Println("Hello, CodeJam!")
-
-    // Your code here
-    fmt.Printf("Fibonacci(10): %d\\n", fibonacci(10))
-
-    // Slice example
-    numbers := []int{1, 2, 3, 4, 5}
-    fmt.Printf("Numbers: %v\\n", numbers)
-}
-`,
+    defaultCode: '',
   },
   rust: {
     id: 'rust',
@@ -188,31 +132,60 @@ func main() {
     extension: '.rs',
     icon: SiRust,
     iconColor: '#CE422B',
-    defaultCode: `// Rust Playground
-fn fibonacci(n: u32) -> u32 {
-    if n <= 1 {
-        return n;
-    }
-    fibonacci(n - 1) + fibonacci(n - 2)
-}
-
-fn main() {
-    println!("Hello, CodeJam!");
-
-    // Your code here
-    println!("Fibonacci(10): {}", fibonacci(10));
-
-    // Vector example
-    let numbers: Vec<i32> = vec![1, 2, 3, 4, 5];
-    println!("Numbers: {:?}", numbers);
-
-    // Iterator example
-    let sum: i32 = numbers.iter().sum();
-    println!("Sum: {}", sum);
-}
-`,
+    defaultCode: '',
   },
 };
+
+export const DISPLAY_LANGUAGE_CONFIGS: Record<
+  HistoryDisplayLanguage,
+  LanguageConfig
+> = {
+  ...LANGUAGE_TEMPLATES,
+  ...LEGACY_LANGUAGE_TEMPLATES,
+};
+
+const HISTORY_LANGUAGE_ALIASES: Record<string, HistoryDisplayLanguage> = {
+  javascript: 'javascript',
+  js: 'javascript',
+  python: 'python',
+  py: 'python',
+  java: 'java',
+  cpp: 'cpp',
+  'c++': 'cpp',
+  c: 'c',
+  go: 'go',
+  golang: 'go',
+  rust: 'rust',
+  rs: 'rust',
+};
+
+/** Normalize API/history language strings for icons and filenames. */
+export function normalizeHistoryLanguage(lang: string): HistoryDisplayLanguage {
+  const raw = (lang ?? 'javascript').trim().toLowerCase();
+  return HISTORY_LANGUAGE_ALIASES[raw] ?? 'javascript';
+}
+
+export function languageConfigForHistory(lang: string): LanguageConfig {
+  const key = normalizeHistoryLanguage(lang);
+  return DISPLAY_LANGUAGE_CONFIGS[key];
+}
+
+/** Persisted playground language or legacy keys → executor-supported id. */
+export function coerceExecutableLanguage(raw: string | null): SupportedLanguage {
+  if (raw === 'javascript' || raw === 'python' || raw === 'java') {
+    return raw;
+  }
+  return 'javascript';
+}
+
+/** When loading a history row into the editor, only executable langs control Monaco + Run. */
+export function executableLanguageFromHistory(lang: string): SupportedLanguage {
+  const key = normalizeHistoryLanguage(lang);
+  if (key === 'javascript' || key === 'python' || key === 'java') {
+    return key;
+  }
+  return 'javascript';
+}
 
 export const DEFAULT_EDITOR_SETTINGS = {
   fontSize: 14,
@@ -222,10 +195,6 @@ export const DEFAULT_EDITOR_SETTINGS = {
   wordWrap: false,
   theme: 'vs-dark' as const,
 };
-
-export const SUPPORTED_LANGUAGES = Object.keys(
-  LANGUAGE_TEMPLATES
-) as SupportedLanguage[];
 
 export const getLanguageConfig = (
   language: SupportedLanguage

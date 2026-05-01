@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { consumeAuthReturnTo } from '@/lib/auth-return-to';
 import { AuthService } from '@/services/auth.service';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -89,7 +90,8 @@ export default function VerifyOtpPage() {
 
     try {
       await validateOtp(otpCode);
-      router.push('/playground');
+      const returnTo = consumeAuthReturnTo();
+      router.push(returnTo ?? '/playground');
     } catch (error) {
       console.error('OTP validation failed:', error);
     }

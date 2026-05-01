@@ -3,20 +3,19 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { History, X, ChevronDown, Clock } from 'lucide-react';
-import { RunHistoryItem, SupportedLanguage } from '@/types/playground.types';
-import { LANGUAGE_TEMPLATES, SUPPORTED_LANGUAGES } from '@/lib/language-templates';
+import { RunHistoryItem, HistoryDisplayLanguage } from '@/types/playground.types';
+import {
+  languageConfigForHistory,
+  normalizeHistoryLanguage,
+} from '@/lib/language-templates';
 
-export function runHistoryLanguage(lang: string): SupportedLanguage {
-  const lower = lang?.toLowerCase() ?? 'javascript';
-  if (SUPPORTED_LANGUAGES.includes(lower as SupportedLanguage)) {
-    return lower as SupportedLanguage;
-  }
-  return 'javascript';
+export function runHistoryLanguage(lang: string): HistoryDisplayLanguage {
+  return normalizeHistoryLanguage(lang);
 }
 
 function getFileNameForRun(lang: string): string {
-  const key = runHistoryLanguage(lang);
-  const ext = LANGUAGE_TEMPLATES[key]?.extension ?? '.js';
+  const key = normalizeHistoryLanguage(lang);
+  const ext = languageConfigForHistory(lang).extension ?? '.js';
   return key === 'java' ? `Main${ext}` : `main${ext}`;
 }
 
@@ -86,8 +85,7 @@ function RunHistoryExpandableList({
   return (
     <ul className={`flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto ${compact ? 'px-2 py-2' : 'px-3 py-3'}`}>
       {runs.map((run) => {
-        const langKey = runHistoryLanguage(run.language);
-        const langConfig = LANGUAGE_TEMPLATES[langKey];
+        const langConfig = languageConfigForHistory(run.language);
         const success = isSuccess(run.status);
         const expanded = expandedId === run.id;
         const timeMs = run.executionTimeMs;

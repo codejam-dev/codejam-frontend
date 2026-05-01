@@ -5,6 +5,7 @@ import Split from 'react-split';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play,
+  Square,
   ChevronDown,
   Moon,
   Sun,
@@ -17,7 +18,7 @@ import {
 } from 'lucide-react';
 import CodeEditor, { type CodeEditorHandle } from './CodeEditor';
 import OutputPanel from './OutputPanel';
-import RunHistoryPanel, { runHistoryLanguage, RunHistoryTabContent } from './RunHistoryPanel';
+import RunHistoryPanel, { RunHistoryTabContent } from './RunHistoryPanel';
 import {
   ConsoleMessage,
   FloatingRunButton,
@@ -35,10 +36,12 @@ import {
 import {
   LANGUAGE_TEMPLATES,
   DEFAULT_EDITOR_SETTINGS,
-  SUPPORTED_LANGUAGES,
+  EXECUTABLE_LANGUAGES,
   getDefaultCode,
+  coerceExecutableLanguage,
+  executableLanguageFromHistory,
 } from '@/lib/language-templates';
-import { PlaygroundService } from '@/services/playground.service';
+import { PlaygroundService, type CancellableExecuteSession } from '@/services/playground.service';
 import { useAuth } from '@/contexts/AuthContext';
 import { downloadCodeAsFile, buildShareUrl, copyToClipboard, parseShareParams } from '@/lib/playground-utils';
 import { MobileSettingsSheet } from '@/features/playground/components';
@@ -82,6 +85,7 @@ export default function CodePlayground() {
   const languageDropdownRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<CodeEditorHandle>(null);
+  const executeSessionRef = useRef<CancellableExecuteSession | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -107,20 +111,23 @@ export default function CodePlayground() {
     const shared = parseShareParams(params);
 
     if (shared) {
+      const language = coerceExecutableLanguage(shared.language);
       setState((prev) => ({
         ...prev,
-        language: shared.language,
+        language,
         code: shared.code,
         output: null,
         error: null,
       }));
-      PlaygroundService.saveLanguage(shared.language);
-      PlaygroundService.saveCode(shared.language, shared.code);
+      PlaygroundService.saveLanguage(language);
+      PlaygroundService.saveCode(language, shared.code);
       window.history.replaceState(null, '', window.location.pathname);
       return;
     }
 
-    const savedLanguage = PlaygroundService.getSavedLanguage() || 'javascript';
+    const savedLanguage = coerceExecutableLanguage(
+      PlaygroundService.getSavedLanguage()
+    );
     const savedCode = PlaygroundService.getSavedCode(savedLanguage);
     const savedSettings = PlaygroundService.getSavedSettings() || DEFAULT_EDITOR_SETTINGS;
     const consoleUi = PlaygroundService.getConsoleWorkspaceUi();
@@ -148,18 +155,29 @@ export default function CodePlayground() {
     return () => clearTimeout(timeoutId);
   }, [state.code, state.language]);
 
+  const handleStopRun = useCallback(() => {
+    void executeSessionRef.current?.cancel();
+  }, []);
+
   const handleRunCode = useCallback(async () => {
+    // Cancel any in-flight run before starting a new one.
+    executeSessionRef.current?.cancel();
+    executeSessionRef.current = null;
+
     setState((prev) => ({ ...prev, isExecuting: true, error: null }));
 
+    const session = PlaygroundService.beginCancellableExecute(
+      {
+        language: state.language,
+        code: state.code,
+        input: state.input,
+      },
+      authState.token
+    );
+    executeSessionRef.current = session;
+
     try {
-      const result = await PlaygroundService.executeCode(
-        {
-          language: state.language,
-          code: state.code,
-          input: state.input,
-        },
-        authState.token
-      );
+      const result = await session.done;
 
       setState((prev) => ({
         ...prev,
@@ -182,6 +200,8 @@ export default function CodePlayground() {
         isExecuting: false,
       }));
       if (isMobile) setMobileRunRevealTick((t) => t + 1);
+    } finally {
+      executeSessionRef.current = null;
     }
   }, [state.language, state.code, state.input, authState.token, isMobile]);
 
@@ -280,7 +300,7 @@ export default function CodePlayground() {
   }, [authState.token]);
 
   const handleRestoreFromHistory = useCallback((run: RunHistoryItem) => {
-    const lang = runHistoryLanguage(run.language);
+    const lang = executableLanguageFromHistory(run.language);
     setState((prev) => ({
       ...prev,
       language: lang,
@@ -359,7 +379,7 @@ export default function CodePlayground() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="py-1.5">
-              {SUPPORTED_LANGUAGES.map((lang) => {
+              {EXECUTABLE_LANGUAGES.map((lang) => {
                 const langConfig = LANGUAGE_TEMPLATES[lang];
                 const isActive = state.language === lang;
                 return (
@@ -504,17 +524,29 @@ export default function CodePlayground() {
                 >
                   ⧖ History
                 </motion.button>
-                <motion.button
-                  type="button"
-                  onClick={handleRunCode}
-                  disabled={state.isExecuting}
-                  whileHover={{ scale: state.isExecuting ? 1 : 1.03 }}
-                  whileTap={{ scale: state.isExecuting ? 1 : 0.97 }}
-                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 px-5 py-2 text-sm font-semibold shadow-lg shadow-violet-900/20 disabled:cursor-not-allowed disabled:from-gray-600 disabled:to-gray-700 disabled:opacity-80"
-                >
-                  <Play className={`h-4 w-4 ${state.isExecuting ? 'animate-spin' : ''}`} fill="currentColor" />
-                  <span>{state.isExecuting ? 'Running…' : 'Run'}</span>
-                </motion.button>
+                {state.isExecuting ? (
+                  <motion.button
+                    type="button"
+                    onClick={handleStopRun}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    className="flex items-center gap-2 rounded-lg border border-rose-500/50 bg-rose-950/80 px-5 py-2 text-sm font-semibold text-rose-100 shadow-lg shadow-rose-900/20"
+                  >
+                    <Square className="h-4 w-4 fill-current" />
+                    <span>Stop</span>
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    type="button"
+                    onClick={handleRunCode}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 px-5 py-2 text-sm font-semibold shadow-lg shadow-violet-900/20"
+                  >
+                    <Play className="h-4 w-4" fill="currentColor" />
+                    <span>Run</span>
+                  </motion.button>
+                )}
 
                 <motion.button
                   type="button"
@@ -730,7 +762,11 @@ export default function CodePlayground() {
       )}
 
       {isMobile && (
-        <FloatingRunButton onClick={handleRunCode} isExecuting={state.isExecuting} />
+        <FloatingRunButton
+          onRun={handleRunCode}
+          onStop={handleStopRun}
+          isExecuting={state.isExecuting}
+        />
       )}
 
       {isMobile && (

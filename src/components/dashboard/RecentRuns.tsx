@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Clock } from 'lucide-react';
 import { RunHistoryItem, RunStatus } from '@/types/playground.types';
-import { LANGUAGE_TEMPLATES } from '@/lib/language-templates';
-import { runHistoryLanguage } from '@/components/RunHistoryPanel';
+import { languageConfigForHistory } from '@/lib/language-templates';
 
 function formatTimeAgo(iso: string): string {
   try {
@@ -38,6 +37,8 @@ function statusBadgeClasses(status: RunStatus): string {
       return 'bg-red-500/20 text-red-400';
     case 'TIMEOUT':
       return 'bg-amber-500/20 text-amber-400';
+    case 'CANCELLED':
+      return 'bg-orange-500/20 text-orange-300';
     case 'SYSTEM_ERROR':
     default:
       return 'bg-zinc-600/40 text-zinc-400';
@@ -52,6 +53,8 @@ function statusLabel(status: RunStatus): string {
       return 'Error';
     case 'TIMEOUT':
       return 'Timeout';
+    case 'CANCELLED':
+      return 'Stopped';
     case 'SYSTEM_ERROR':
       return 'System';
     default:
@@ -112,8 +115,7 @@ export function RecentRuns({ runs, loading }: RecentRunsProps) {
       ) : (
         <ul className="space-y-2">
           {recent.map((run, index) => {
-            const langKey = runHistoryLanguage(run.language);
-            const cfg = LANGUAGE_TEMPLATES[langKey];
+            const cfg = languageConfigForHistory(run.language);
             const Icon = cfg.icon;
             const preview =
               run.code?.replace(/\s+/g, ' ').trim().slice(0, 60) ||

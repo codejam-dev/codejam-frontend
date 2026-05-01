@@ -4,17 +4,14 @@
 
 import { IconType } from 'react-icons';
 
-export type SupportedLanguage =
-  | 'javascript'
-  | 'python'
-  | 'java'
-  | 'cpp'
-  | 'c'
-  | 'go'
-  | 'rust';
+/** Languages the executor accepts (matches backend `CodeSubmission.Language`). */
+export type SupportedLanguage = 'javascript' | 'python' | 'java';
+
+/** Same plus retired UI-only labels kept for run history / old share links. */
+export type HistoryDisplayLanguage = SupportedLanguage | 'cpp' | 'c' | 'go' | 'rust';
 
 export interface LanguageConfig {
-  id: SupportedLanguage;
+  id: HistoryDisplayLanguage;
   name: string;
   monacoLanguage: string;
   defaultCode: string;
@@ -72,7 +69,7 @@ export interface EditorStats {
 }
 
 /** Backend execution status */
-export type RunStatus = 'SUCCESS' | 'ERROR' | 'TIMEOUT' | 'SYSTEM_ERROR';
+export type RunStatus = 'SUCCESS' | 'ERROR' | 'TIMEOUT' | 'SYSTEM_ERROR' | 'CANCELLED';
 
 export interface RunHistoryItem {
   id: number;

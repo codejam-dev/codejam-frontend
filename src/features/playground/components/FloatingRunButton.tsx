@@ -1,31 +1,46 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Play, Loader2 } from 'lucide-react';
+import { Play, Loader2, Square } from 'lucide-react';
 
 interface FloatingRunButtonProps {
-  onClick: () => void;
+  onRun: () => void;
+  /** When set, tap while executing calls stop instead of being disabled. */
+  onStop?: () => void;
   isExecuting: boolean;
 }
 
 export default function FloatingRunButton({
-  onClick,
+  onRun,
+  onStop,
   isExecuting,
 }: FloatingRunButtonProps) {
+  const handleClick = () => {
+    if (isExecuting && onStop) onStop();
+    else if (!isExecuting) onRun();
+  };
+
   return (
     <motion.button
-      onClick={onClick}
-      disabled={isExecuting}
+      onClick={handleClick}
+      disabled={isExecuting && !onStop}
       initial={{ scale: 0, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       exit={{ scale: 0, opacity: 0 }}
-      whileHover={{ scale: isExecuting ? 1 : 1.1 }}
-      whileTap={{ scale: isExecuting ? 1 : 0.95 }}
-      className="fixed bottom-[5.25rem] right-4 z-[60] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-violet-600 to-pink-600 shadow-lg shadow-violet-500/30 transition-all disabled:from-gray-600 disabled:to-gray-700 disabled:shadow-none"
+      whileHover={{ scale: !isExecuting || onStop ? 1.1 : 1 }}
+      whileTap={{ scale: !isExecuting || onStop ? 0.95 : 1 }}
+      className={`fixed bottom-[5.25rem] right-4 z-[60] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r shadow-lg transition-all disabled:from-gray-600 disabled:to-gray-700 disabled:shadow-none ${
+        isExecuting && onStop
+          ? 'from-rose-600 to-rose-700 shadow-rose-900/30'
+          : 'from-violet-600 to-pink-600 shadow-violet-500/30'
+      }`}
       style={{
-        boxShadow: isExecuting 
-          ? 'none' 
-          : '0 8px 32px rgba(139, 92, 246, 0.4), 0 0 0 4px rgba(139, 92, 246, 0.1)',
+        boxShadow:
+          isExecuting && onStop
+            ? '0 8px 24px rgba(225, 29, 72, 0.35)'
+            : isExecuting
+              ? 'none'
+              : '0 8px 32px rgba(139, 92, 246, 0.4), 0 0 0 4px rgba(139, 92, 246, 0.1)',
       }}
     >
       {/* Animated ring when not executing */}
@@ -61,7 +76,11 @@ export default function FloatingRunButton({
 
       {/* Icon */}
       {isExecuting ? (
-        <Loader2 className="w-6 h-6 text-white animate-spin" />
+        onStop ? (
+          <Square className="w-5 h-5 text-white fill-current" />
+        ) : (
+          <Loader2 className="w-6 h-6 text-white animate-spin" />
+        )
       ) : (
         <Play className="w-6 h-6 text-white ml-0.5" fill="currentColor" />
       )}

@@ -15,7 +15,7 @@ import {
   Share2,
 } from 'lucide-react';
 import { SupportedLanguage } from '@/types/playground.types';
-import { LANGUAGE_TEMPLATES, SUPPORTED_LANGUAGES } from '@/lib/language-templates';
+import { LANGUAGE_TEMPLATES, EXECUTABLE_LANGUAGES } from '@/lib/language-templates';
 
 interface MobileHeaderProps {
   language: SupportedLanguage;
@@ -105,7 +105,7 @@ export default function MobileHeader({
               style={{ boxShadow: '0 20px 60px rgba(0, 0, 0, 0.6)' }}
             >
               <div className="py-1 max-h-80 overflow-y-auto">
-                {SUPPORTED_LANGUAGES.map((lang) => {
+                {EXECUTABLE_LANGUAGES.map((lang) => {
                   const langConfig = LANGUAGE_TEMPLATES[lang];
                   const isActive = language === lang;
                   return (
